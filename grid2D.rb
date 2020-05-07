@@ -18,12 +18,6 @@ class Grid2D
     to_index(x,y) && @_data[to_index(x,y)]
   end
 
-  def clone;
-    copy = Grid2D.new(@width, @height)
-    copy.instance_variable_set(:@_data, @_data.clone)
-    return copy
-  end
-
   def size();   @width * @height; end
   def width();  @width;           end
   def height(); @height;          end
@@ -34,7 +28,7 @@ class Grid2D
   def each
     return enum_for(:each) unless block_given?
     @_data.each_with_index do |value, index|
-      yield(to_position(index), value)
+      yield(value)
     end
   end
 
@@ -42,22 +36,25 @@ class Grid2D
 
   def include?(x,y); !!to_index(x,y); end
 
-  def to_s
-    cell_to_s = -> (pos, value) { "#{pos} => #{value}" }
+  def to_s(separator: false)
+    cell_to_s = -> (pos, value) { "#{pos}=>#{value}" }
     max_cell_size = map { |pos, value| cell_to_s.call(pos, value).length }.max
-    row_separator=nil
+    row_separator=""
     out = "\n"
     (0...@height).each do |col|
       row_line=(0...@width).map do |row|
         pos, value = Position.new(row,col), get(row, col)
         cell_to_s.call(pos, value).center(max_cell_size)
-      end.join(" | ")
-      row_separator ||= "| "+"-"*row_line.size + " |\n"
-      out+=row_separator
-      out+="| #{row_line} |\n"
+      end.join(separator ? " | " : " ")
+      if separator
+        row_separator ||= "| "+"-"*row_line.size + " |\n"
+        out+=row_separator
+        out+="| #{row_line} |\n"
+      else
+        out+="#{row_line}\n"
+      end
     end
     out+=row_separator+"\n"
-    out
   end
 
   private

@@ -15,9 +15,9 @@ class Cell
 
   def accessible?(); true;                end
   def <=>(other);    data <=> other.data; end
-  def to_s;          data.to_s;           end
+  def to_s;          "#{data.to_s}";      end
 end
 
 class GameCell < Cell
-  def accessible?(); data != 'X'; end
+  def accessible?(); data != '#'; end
 end

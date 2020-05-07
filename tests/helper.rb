@@ -13,15 +13,40 @@ def init_grid(data = nil, cell_klass = nil)
   height = data.size
   grid = Grid2D.new(width, height)
 
-  data.each_with_index do |row, col_index|
-    row.each_with_index.each do |value, row_index|
-      c_pos = Position.new(row_index,col_index)
+  data.each_with_index do |row, row_index|
+    row.each_with_index.each do |value, col_index|
+      c_pos = Position.new(col_index, row_index)
       cell = (cell_klass || Cell).new(c_pos, value)
       Position::DIRECTIONS.each do |dir|
         dir_pos = c_pos.move(dir)
         cell.set_neighbor(dir_pos, 1, dir) if grid.include?(dir_pos.x, dir_pos.y)
       end
-      grid.set(row_index, col_index, cell)
+      grid[c_pos] = cell
+    end
+  end
+  grid
+end
+
+def init_tor_grid(data = nil, cell_klass = nil)
+  data ||= [
+    ['X', 'X', '.', '.'],
+    ['.', '.', '.', '.'],
+    ['X', 'X', '.', 'X'],
+  ]
+
+  width = data.map { |row| row.size }.max
+  height = data.size
+  grid = Grid2D.new(width, height)
+
+  data.each_with_index do |row, row_index|
+    row.each_with_index.each do |value, col_index|
+      c_pos = TorPosition.new(col_index, row_index, width - 1 , height - 1)
+      cell = (cell_klass || Cell).new(c_pos, value)
+      Position::DIRECTIONS.each do |dir|
+        dir_pos = c_pos.move(dir)
+        cell.set_neighbor(dir_pos, 1, dir) if grid.include?(dir_pos.x, dir_pos.y)
+      end
+      grid[c_pos] = cell
     end
   end
   grid

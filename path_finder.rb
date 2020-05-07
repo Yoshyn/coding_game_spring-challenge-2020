@@ -1,3 +1,5 @@
+require_relative "core_ext/object"
+
 class PathFinder
   def initialize(grid); @grid = grid; end
 
@@ -68,11 +70,11 @@ class PathFinder
     }
   end
 
-  def to_s;
-    to_display = @grid.clone
+  def to_s(separator: false);
+    to_display = @grid.deep_clone
     @visited.each do |distance, origin|
-      to_display[distance] = origin
+      to_display[distance] = origin.join('-')
     end
-    to_display.to_s
+    to_display.to_s(separator: separator)
   end
 end
