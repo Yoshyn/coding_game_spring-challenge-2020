@@ -21,65 +21,91 @@ class PathFinderTest < Minitest::Test
     ]
     grid = init_grid(data, GameCell);
 
-    assert_equal({ to: Position.new(1,0), dir: :west, dist: 7 },
-      PathFinder.new(grid).shortest(
-        Position.new(2,0), Position.new(0,5))
-      )
+    assert_equal({
+        next: Position.new(0,1),
+        cost: 1, # dir: :north,
+        path: [Position.new(0,1)]},
+      PathFinder.new(grid, Position.new(0,2)).shortest_path(
+        Position.new(0,1)))
 
-    assert_equal({ to: Position.new(2,0), dir: :north, dist: 10 },
-      PathFinder.new(grid).shortest(
-        Position.new(2,1), Position.new(2,3))
-      )
+    assert_equal({
+        next: Position.new(1,0),
+        cost: 7, # dir: :west,
+        path: [
+          Position.new(1,0), Position.new(0,0),
+          Position.new(0,1), Position.new(0,2),
+          Position.new(0,3), Position.new(0,4),
+          Position.new(0,5)]},
+      PathFinder.new(grid, Position.new(2,0)).shortest_path(
+        Position.new(0,5)))
 
-    assert_equal({ to: Position.new(3,0), dir: :east, dist: 9 },
-      PathFinder.new(grid).shortest(
-        Position.new(2,0), Position.new(2,3))
-      )
+    assert_equal({
+      next: Position.new(2,0),
+      cost: 10, # dir: :north,
+      path: [ Position.new(2,0), Position.new(3,0),
+        Position.new(4,0), Position.new(5,0),
+        Position.new(5,1), Position.new(5,2),
+        Position.new(5,3), Position.new(4,3),
+        Position.new(3,3), Position.new(2,3)
+      ]},
+      PathFinder.new(grid, Position.new(2,1)).shortest_path(
+        Position.new(2,3)))
 
-    assert_nil(PathFinder.new(grid).shortest(
-      Position.new(2,0), Position.new(10,10)))
+    assert_equal({
+      next: Position.new(3,0),
+      cost: 9, # dir: :east,
+      path: [ Position.new(3,0),
+        Position.new(4,0), Position.new(5,0),
+        Position.new(5,1), Position.new(5,2),
+        Position.new(5,3), Position.new(4,3),
+        Position.new(3,3), Position.new(2,3)
+      ]},
+      PathFinder.new(grid, Position.new(2,0)).shortest_path(
+        Position.new(2,3)))
 
-    assert_nil(PathFinder.new(grid).shortest(
-      Position.new(1,1), Position.new(0,0)))
+    assert_equal(PathFinder.unfind_result, PathFinder.new(grid, Position.new(2,0)).shortest_path(Position.new(10,10)))
 
-    assert_nil(PathFinder.new(grid).shortest(
-      Position.new(2,0),
+    assert_equal(PathFinder.unfind_result, PathFinder.new(grid, Position.new(2,0)).shortest_path(
       Position.new(1,1)))
 
-    assert_nil(PathFinder.new(grid).shortest(
-      Position.new(0,0),
+    assert_equal(PathFinder.unfind_result, PathFinder.new(grid, Position.new(0,0)).shortest_path(
       Position.new(7,0)))
   end
 
-  def test_longest_path_finder
+  def test_shortest_path_finder_move_2
     data ||= [
-      ['.', '#', '.', '.', '.', '.', '#', '.'],
+      ['.', '.', '.', '.', '.', '.', '#', '.'],
       ['.', '#', '.', '#', '#', '.', '#', '.'],
       ['.', '#', '#', '#', '.', '.', '#', '.'],
-      ['.', '#', '#', '.', '.', '.', '#', '.'],
-      ['.', '#', '#', '#', '#', '.', '#', '.'],
       ['.', '#', '.', '.', '.', '.', '#', '.'],
+      ['.', '#', '#', '#', '#', '.', '#', '.'],
+      ['.', '.', '.', '.', '.', '.', '#', '.'],
     ]
     grid = init_grid(data, GameCell);
 
-    assert_equal({ to: Position.new(0,2), dir: :south, dist: 4 },
-      PathFinder.new(grid).longest(
-        Position.new(0,1))
+    assert_equal({
+      next: Position.new(0,1),
+      cost: 1, # dir: :north,
+      path: [Position.new(0,1)] },
+      PathFinder.new(grid, Position.new(0,2)).shortest_path(
+        Position.new(0,1), move_size: 2 )
       )
 
-    grid[Position.new(1,0)].data = '.'
-
-    assert_equal({ to: Position.new(0,0), dir: :north, dist: 14 },
-      PathFinder.new(grid).longest(
-        Position.new(0,1))
+    assert_equal({
+      next: Position.new(0,0),
+      cost: 1, # dir: :north,
+      path: [Position.new(0,1), Position.new(0,0)]},
+      PathFinder.new(grid, Position.new(0,2)).shortest_path(
+        Position.new(0,0), move_size: 2 )
       )
 
-    grid[Position.new(1,0)].data = '#'
-    grid[Position.new(0,0)].set_neighbor(Position.new(7,0), 2, :west)
-
-    assert_equal({ to: Position.new(0,0), dir: :north, dist: 8 },
-      PathFinder.new(grid).longest(
-        Position.new(0,1))
+    assert_equal({
+      next: Position.new(0,1),
+      cost: 2, # dir: :north,
+      path: [Position.new(0,2),
+        Position.new(0,1), Position.new(0,0)]},
+      PathFinder.new(grid, Position.new(0,3)).shortest_path(
+        Position.new(0,0), move_size: 2 )
       )
   end
 
@@ -91,15 +117,22 @@ class PathFinderTest < Minitest::Test
     ]
     grid = init_tor_grid(data, GameCell);
 
-    assert_equal({ to: Position.new(0,1), dir: :west, dist: 2 },
-      PathFinder.new(grid).shortest(
-        Position.new(1,1), Position.new(5,1))
-      )
+    assert_equal({
+      next: Position.new(0,1),
+      cost: 2, # dir: :west,
+      path: [Position.new(0,1), Position.new(5,1)]},
+      PathFinder.new(grid, Position.new(1,1)).shortest_path(
+        Position.new(5,1)))
 
     grid[Position.new(0,1)].data = '#'
-    assert_equal({ to: Position.new(2,1), dir: :east, dist: 4 },
-      PathFinder.new(grid).shortest(
-        Position.new(1,1), Position.new(5,1))
-      )
+    assert_equal({
+      next: Position.new(2,1),
+      cost: 4, # dir: :east,
+      path: [
+        Position.new(2,1), Position.new(3,1),
+        Position.new(4,1), Position.new(5,1)
+      ]},
+      PathFinder.new(grid, Position.new(1,1)).shortest_path(
+        Position.new(5,1)))
   end
 end

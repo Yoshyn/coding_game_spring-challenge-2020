@@ -1,0 +1,11 @@
+require_relative 'position';
+require_relative 'core_ext/hash';
+
+hashy = {
+  Position.new(1,1) => :a,
+  Position.new(2, 2) => :b,
+  c: :c,
+  TorPosition.new(0,0, 5,5) => 0
+}
+
+hashy.except(*[Position.new(1,1), Position.new(0,0)])

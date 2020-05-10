@@ -4,28 +4,23 @@ require_relative 'core_ext/object'
 require_relative 'grid2D'
 require_relative 'cell'
 require_relative 'path_finder'
-require 'benchmark'
-
-STDOUT.sync = true # DO NOT REMOVE
+require 'set'
 
 class Game
   include Singleton
-  attr_accessor :players
-  attr_reader :grid
-  attr_reader :grid_turn
-  attr_reader :visible_pellets
 
-  MY_ID = true
-  OPP_ID = false
+  attr_reader :grid, :grid_turn
+  attr_reader :turn_number
+  attr_reader :visible_pellets, :turn_targeted_pos
+  attr_reader :my_player, :opp_player
 
   def initialize()
-    @players = {
-      MY_ID => Player.new(:me),
-      OPP_ID => Player.new(:opp)
-    }
-    @visible_pac_count    = 0
-    @visible_pellets = {}
+    @my_player  = Player.new(:ME)
+    @opp_player = Player.new(:OPP)
+    @visible_pellets   = {}
+    @turn_number = 0
     @grid = @grid_turn = nil
+    @turn_targeted_pos = Set.new
   end
 
   def game_init()
@@ -41,65 +36,70 @@ class Game
     @grid.each do |cell|
       cell_pos = cell.uid
       if grid[cell_pos].accessible?
+        @visible_pellets[cell_pos] = 1
         Position::DIRECTIONS.each do |dir|
           dir_pos = cell_pos.move(dir)
           cell.set_neighbor(dir_pos, 1, dir) if grid[dir_pos].accessible?
         end
       end
     end
+    STDERR.puts "Init Grid with #{@visible_pellets.size()} Pellets"
     @grid.freeze
   end
 
   def run_loop
     STDERR.puts "Game start infinite loop !"
     loop do
-      actions = []
+      @turn_number += 1
       fetch_data()
-      send_action_ms = 1000 * Benchmark.realtime {
-        @players[MY_ID].pacmans.each do |pacman|
-          actions << generate_actions_for(pacman);
-        end
-      }
-      STDERR.puts "Genetate actions in #{send_action_ms}ms"
-      puts actions.join(' | ')
+      actions = my_player.pacmans.map do |pacman|
+        pacman.next_action
+      end
+      puts actions.reject(&:nil?).join(' | ')
     end
   end
 
-  def mine?(id) id.to_i == 1; end
+  def all_pacmans;
+    (my_player.pacmans + opp_player.pacmans);
+  end
+
+  def player(player_id);
+    (player_id.to_i == 1) ? my_player : opp_player;
+  end
+
+  def get_pac_man(player_id, pac_id);
+    player(player_id).get_pac_man(pac_id.to_i)
+  end
 
   private
   def fetch_data()
     @grid_turn = @grid.deep_clone
-    @visible_pellets = {}
+    @turn_targeted_pos = []
     my_score, opponent_score = gets.split(" ").collect {|x| x.to_i}
-    @visible_pac_count = gets.to_i
-    # STDERR.puts "Players : #{@players}"
-    @visible_pac_count.times do
-        pac_id, player_id, x, y, type_id, speed_turns_left, ability_cooldown = gets.split(" ")
-        pac_pos = TorPosition.new(x.to_i, y.to_i, @grid.width-1, @grid.height-1)
-        @players[mine?(player_id)].update_pac_man(
-          pac_id.to_i, pac_pos,
-          type_id, speed_turns_left.to_i, ability_cooldown.to_i
-        )
-        @grid_turn[pac_pos].data = -5
+    all_pacmans.each { |pc| pc.reset! }
+
+    visible_pac_count = gets.to_i
+    visible_pac_count.times do
+      pac_id, player_id, x, y, type_id, speed_turns_left, ability_cooldown = gets.split(" ")
+      pac_pos = TorPosition.new(x.to_i, y.to_i, @grid.width-1, @grid.height-1)
+      pac_man = get_pac_man(player_id, pac_id.to_i)
+      pac_man.update(
+        TorPosition.new(x.to_i, y.to_i, @grid.width-1, @grid.height-1),
+        type_id,
+        speed_turns_left.to_i,
+        ability_cooldown.to_i)
     end
-    @visible_pellets_count = gets.to_i # all pellets in sight
-    @visible_pellets_count.times do
-      # value: amount of points this pellet is worth
+
+    visible_pellets_count = gets.to_i # all pellets in sight
+    visible_pellets_count.times do
       x, y, value = gets.split(" ").collect {|x| x.to_i}
       b_pos = TorPosition.new(x, y, @grid.width-1, @grid.height-1)
       @visible_pellets[b_pos] = value
-      @grid_turn[b_pos].data = value
     end
-    @players[MY_ID].score = my_score
-    @players[OPP_ID].score = opponent_score
-  end
+    STDERR.puts "T#{turn_number} Total/visible Pellet => #{@visible_pellets.size()}/#{visible_pellets_count}"
+    @visible_pellets.each { |pos, pts| @grid_turn[pos].data = pts }
 
-  def generate_actions_for(pacman)
-    targeted, pts = @visible_pellets.max_by { |pos, pts|
-      pts * 2 + pos.distance(pacman.position)
-    }
-
-    "MOVE #{pacman.uid} #{targeted.x} #{targeted.y} T#{targeted}P#{pts}"
+    my_player.score = my_score
+    opp_player.score = opponent_score
   end
 end

@@ -1,80 +1,88 @@
 require_relative "core_ext/object"
 
-class PathFinder
-  def initialize(grid); @grid = grid; end
+class Step
+  include Comparable
+  attr_reader :from, :to, :cost
 
-  def shortest(from, to);
-    return nil unless @grid.slice(from, to).all?(&:accessible?)
-    @visited, @to_visit, current_uid = {}, [[0, from, nil]], nil
-
-    while(!@to_visit.empty? && current_uid != to)
-      @to_visit.sort_by! { |dist, _| dist }
-      distance, current_uid, previous_uid = @to_visit.shift
-      @visited[current_uid] ||= begin
-        @grid[current_uid].neighbors.each do |ngh_uid, ngh_data|
-          next unless @grid[ngh_uid].accessible?
-          @to_visit << [
-            distance + ngh_data.distance,
-            ngh_uid, current_uid ]
-        end
-        [distance, previous_uid]
-      end
-    end
-
-    distance, res_to = @visited[to]
-
-    return nil unless res_to
-    loop do
-      break if @visited[res_to].last == from
-      res_to = @visited[res_to].last
-    end
-    {
-      to: res_to,
-      dir: @grid[from].neighbors[res_to].direction,
-      dist: distance
-    }
+  def initialize(from, to, cost);
+    @from, @to, @cost = from, to, cost;
   end
 
-  def longest(from, to_conditions=[]);
-    to_conditions << ->(visited) {
-      visited.max_by { |k,v| v.first }
-    }
-    return nil unless @grid[from]&.accessible?
-    @visited, @to_visit, current_uid = {}, [[0, from, nil]], nil
+  def <=>(other); cost <=> other.cost; end
+  def to_a; [from, to, cost];end
+end
 
-    while(!@to_visit.empty?)
-      @to_visit.sort_by! { |dist, _| dist }
-      distance, current_uid, previous_uid = @to_visit.shift
-      @visited[current_uid] ||= begin
-        @grid[current_uid].neighbors.each do |ngh_uid, ngh_data|
-          next unless @grid[ngh_uid].accessible?
-          @to_visit << [
-            distance + ngh_data.distance,
-            ngh_uid, current_uid ]
-        end
-        [distance, previous_uid]
-      end
-    end
+class PathFinder
 
-    res_to, (distance, _) = to_conditions.map { |method|
-      method.call(@visited) }.first
+  def initialize(grid, from, unit_context = nil);
+    @grid, @from, @unit_context = grid, from, unit_context;
+    @visited = {}
+  end
+
+  def self.unfind_result;
+    { next: nil, dir: nil, dist: 0, path: [] }
+  end
+
+  def shortest_path(to, move_size: 1)
+    dijkstra(to)
+
+    positions, (res_to, cost) = [to], @visited[to]
+    return self.class.unfind_result unless res_to
+
     loop do
-      break if @visited[res_to].last == from
-      res_to = @visited[res_to].last
+      break if res_to == @from
+      positions << res_to
+      res_to = @visited[res_to].first
     end
-
+    fetch_key = (move_size <= positions.size) ? -move_size : -1
     {
-      to: res_to,
-      dir: @grid[from].neighbors[res_to].direction,
-      dist: distance
+      next: positions[fetch_key],
+      path: positions.reverse(),
+      cost: (cost / move_size.to_f).round
     }
   end
 
   def to_s(separator: false);
     to_display = @grid.deep_clone
-    @visited.each do |distance, origin|
-      to_display[distance] = origin.join('-')
+    @visited.each do |cost, origin|
+      to_display[cost] = origin.join('-')
     end
     to_display.to_s(separator: separator)
+  end
+
+  private
+
+  def dijkstra(to);
+    return self.class.unfind_result unless @grid[to]&.accessible?(@unit_context)
+    @visited, current = {}, nil;
+    to_visit = [ Step.new(@from, to, 0) ]
+    while(!to_visit.empty? && current&.from != to)
+      to_visit.sort!
+      current = to_visit.shift
+      @visited[current.from] ||= begin
+        @grid[current.from].neighbors.each do |ngh_uid, ngh_data|
+          next unless @grid[ngh_uid].accessible?(@unit_context)
+          to_visit << Step.new(ngh_uid, current.from,
+            current.cost + ngh_data.cost)
+        end
+        [current.to, current.cost]
+      end
+    end
+  end
+
+  def maximise_cost(max_cost: 10, max_depth: 5);
+    @visited, to_visit, current = {}, [[@from, nil, 0]], nil;
+    while(!to_visit.empty? && current != to)
+      to_visit.sort_by! { |_, _, cost| cost }
+      current, previous_uid, cost = to_visit.last
+      @visited[current] ||= begin
+        @grid[current].neighbors.each do |ngh_uid, ngh_data|
+          next unless @grid[ngh_uid].accessible?(@unit_context)
+          to_visit << [ ngh_uid, current,
+            cost + ngh_data.cost ]
+        end
+        [previous_uid, cost]
+      end
+    end
   end
 end

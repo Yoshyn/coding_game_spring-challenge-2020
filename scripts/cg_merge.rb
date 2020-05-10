@@ -1,8 +1,8 @@
-require 'pry-byebug'
-
 if File.basename(Dir.pwd) != 'coding_game'
   raise "Please run this in top folder (coding_game)"
 end
+
+puts `ruby tests/run.rb`
 
 MERGED_FILES = []
 

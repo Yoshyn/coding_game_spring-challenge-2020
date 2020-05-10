@@ -25,6 +25,10 @@ module AttrHistory
         return values[-1] != values[-2]
       end
 
+      define_method("previous_#{attribute}") do
+        __send__(method_key)[-2]
+      end
+
       define_method("#{attribute}_decreased?") do
         values = __send__(method_key)
         !!(values[-1] && values[-2] && values[-1] < values[-2])

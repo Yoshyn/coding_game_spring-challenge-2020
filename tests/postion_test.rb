@@ -40,9 +40,20 @@ class PositionTest < Minitest::Test
     positions = Position.new(2,1).circle_area(1)
     assert_equal(5, positions.count)
     assert_equal([
-      [2,0],
+            [2,0],
       [1,1],[2,1],[3,1],
-      [2,2]
+            [2,2]
+    ].sort, positions.map(&:to_a).sort)
+
+
+    positions = Position.new(2,1).circle_area(2)
+    assert_equal(13, positions.count)
+    assert_equal([
+                  [2,-1],
+           [1,0], [2,0], [3,0],
+    [0,1], [1,1], [2,1], [3,1], [4,1],
+           [1,2], [2,2], [3,2],
+                  [2,3]
     ].sort, positions.map(&:to_a).sort)
   end
 end

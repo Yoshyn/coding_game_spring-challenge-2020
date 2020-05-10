@@ -1,4 +1,5 @@
 require_relative 'core_ext/attr_history'
+require_relative 'pac_man'
 
 class Player
   extend AttrHistory
@@ -10,36 +11,12 @@ class Player
     @pacmans = {}
   end
 
-  def update_pac_man(uid, position, type_id, speed_turns_left, ability_cooldown)
-    @pacmans[uid] ||= PacMan.new(uid)
-    @pacmans[uid].position = position
-    @pacmans[uid].type_id = type_id
-    @pacmans[uid].speed_turns_left = speed_turns_left
-    @pacmans[uid].ability_cooldown = ability_cooldown
-  end
+  def get_pac_man(uid); @pacmans[uid] ||= PacMan.new(self, uid); end
 
-  def pacmans; @pacmans.values; end
+  def include_pm?(pac_id); @pacmans.keys.include?(pac_id); end
 
-  def to_s; "pl[#{@uid} - Sco(#{score}) - pacmans(#{@pacmans})]"; end
-end
+  def raw_pacmans; @pacmans.values; end
+  def pacmans; raw_pacmans.select { |pc| pc.visible }; end
 
-class PacMan
-  extend AttrHistory
-
-  attr_reader :uid
-  attr_historized(
-    :position, # position in the grid
-    :type_id,  # unused in wood leagues
-    :speed_turns_left, # unused in wood leagues
-    :ability_cooldown  # unused in wood leagues
-  )
-
-  def initialize(uid); @uid = uid; end
-
-  def ==(other);   x == other.uid && y == other.uid; end
-  def !=(other);   !(self == other);                 end
-  def hash;        uid.hash;                         end
-  def eql?(other); self == other;                    end
-
-  def to_s; "pm[#{@uid} - pos(#{position})]"; end
+  def to_s; "player[#{@uid} - Score(#{score}) - pacmans(#{@pacmans.map(&:to_s)})]"; end
 end

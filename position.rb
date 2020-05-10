@@ -4,15 +4,12 @@ class Position
 
   class Radius
     include Enumerable
-    def initialize(value, position_klass=nil);
-      @value =value;
-      @position_klass = position_klass
-    end
+    def initialize(value); @value =value; end
 
     def each
       (-@value..@value).each do |i|
         (-@value..@value).each do |j|
-          yield(@position_klass.new(i,j))
+          yield(Position.new(i,j))
         end
       end
     end
@@ -56,7 +53,7 @@ class Position
   def >(other); x > other.x || (x == other.x && y > other.y); end
 
   def circle_area(radius);
-    Radius.new(radius, self.class).map do |pos|
+    Radius.new(radius).map do |pos|
       pos + self if (pos.x.abs + pos.y.abs) <= radius
     end.compact
   end
@@ -66,7 +63,7 @@ class Position
   end
 
   def square_area(radius);
-    Radius.new(radius, self.class).map { |pos| pos + self }
+    Radius.new(radius).map { |pos| pos + self }
   end
 
   def to_s; "(#{x},#{y})";  end
@@ -79,11 +76,24 @@ class TorPosition < Position
     @max_x,@max_y=max_x,max_y;
   end
 
+  def circle_area(radius);
+    super(radius).map do |pos|
+      TorPosition.new(pos.x, pos.y, @max_x, @max_y)
+    end
+  end
+
+  def square_area(radius);
+    super(radius).map do |pos|
+      TorPosition.new(pos.x, pos.y, @max_x, @max_y)
+    end
+  end
+
   def y;
     @y=0 if @y > @max_y
     @y=@max_y if @y < 0
     return @y
   end
+
   def x;
     @x=0 if @x > @max_x
     @x=@max_x if @x < 0
