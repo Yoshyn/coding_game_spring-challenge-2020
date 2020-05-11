@@ -12,7 +12,7 @@ module AttrHistory
       end
 
       define_method(attribute) do
-        __send__(method_key).last
+        __send__(method_key)[-1]
       end
 
       define_method("#{attribute}=") do |value|

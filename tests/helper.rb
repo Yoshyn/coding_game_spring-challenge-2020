@@ -9,8 +9,8 @@ def init_grid(data = nil, cell_klass = nil)
     ['(x0,y2)', '(x1,y2)', '(x2,y2)', '(x3,y2)'],
   ]
 
-  width = data.map { |row| row.size }.max
-  height = data.size
+  width = data.map(){ |row| row.length }.max
+  height = data.length
   grid = Grid2D.new(width, height)
 
   data.each_with_index do |row, row_index|
@@ -34,8 +34,8 @@ def init_tor_grid(data = nil, cell_klass = nil)
     ['X', 'X', '.', 'X'],
   ]
 
-  width = data.map { |row| row.size }.max
-  height = data.size
+  width = data.map(){ |row| row.length }.max
+  height = data.length
   grid = Grid2D.new(width, height)
 
   data.each_with_index do |row, row_index|

@@ -18,4 +18,8 @@ class Hash
     keys.each { |key| delete(key) }
     self
   end
+
+  def include?(other)
+    self.merge(other) == self
+  end
 end

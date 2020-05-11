@@ -43,7 +43,7 @@ class Game
         end
       end
     end
-    STDERR.puts "Init Grid with #{@visible_pellets.size()} Pellets"
+    STDERR.puts "Init Grid with #{@visible_pellets.length()} Pellets"
     @grid.freeze
   end
 
@@ -96,7 +96,7 @@ class Game
       b_pos = TorPosition.new(x, y, @grid.width-1, @grid.height-1)
       @visible_pellets[b_pos] = value
     end
-    STDERR.puts "T#{turn_number} Total/visible Pellet => #{@visible_pellets.size()}/#{visible_pellets_count}"
+    STDERR.puts "T#{turn_number} Total/visible Pellet => #{@visible_pellets.length()}/#{visible_pellets_count}"
     @visible_pellets.each { |pos, pts| @grid_turn[pos].data = pts }
 
     my_player.score = my_score

@@ -7,7 +7,7 @@ ALGO :
 -> CAN KILL : target le mechant
 
 ELSE
-  STOP CONDITION pts > 10 || depth > 10
+  STOP CONDITION pts > 10 || on rencontre un pas copain
   -> BEST_SCORING sur X max cases (ou empty?)
     -> X max case = total_case ???
 
@@ -33,6 +33,34 @@ ELSE VISIBLE BULLET avec distance min.
     => max 1 => [0,1] : (5)
     => max 2 => [0,1], [1,1] : (5)
     => max 3 => [0,1], [1,1], [2,1] : (6)
+
+    # Init
+    visited = {}
+    to_visit = [["(1,1)", nil, 0]]
+    # Tour 1
+    visited = {"(1,1)" => [nil, 0]}
+    to_visit = [
+      ["(1,1)", "(0,1)", 5],
+      ["(1,1)", "(2,1)", 1],
+    ]
+    # Tour 2
+    visited = {
+      "(1,1)" => [nil, 0],
+      "(0,1)" => ["(0,1)", 5],
+    }
+    to_visit = [
+      ["(1,1)", "(0,1)", 1],
+      ["(1,1)", "(2,1)", 1],
+    ]
+
+
+
+
+
+
+
+
+
     => max 4 => [0,1], [1,1], [2,1], [2,0] : (8)
     => max 5 => [0,1], [1,1], [2,1], [2,0] : (7)
              => [2,1], [2,0], [2,1], [3,1], [3,2] : (7)

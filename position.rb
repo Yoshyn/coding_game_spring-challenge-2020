@@ -43,8 +43,8 @@ class Position
     self.x = x - other.x; self.y = y - other.y; self
   end
 
-  def ==(other);    x == other.x && y == other.y; end
-  def !=(other);    !(self == other);             end
+  def ==(other);  x == other&.x && y == other&.y; end
+  def !=(other);  !(self == other);               end
 
   def hash;         to_a.hash;                    end
   def eql?(other);  self == other;                end

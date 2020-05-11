@@ -15,7 +15,7 @@ class TargetableCell
   end
 
   def target_enemy
-    reachable_enemies.select { |enemy| pacman > enemy }.first
+    reachable_enemies.detect { |enemy| pacman > enemy }
   end
 
   def must_switch?

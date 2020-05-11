@@ -27,7 +27,7 @@ class Grid2DTest < Minitest::Test
   def test_neighbors;
     grid = init_grid();
     neighbors_data = ->(x,y) {
-      positions = grid.get(x,y).neighbors.keys
+      positions = grid.get(x,y).neighbors.map(&:to)
       grid.slice(*positions).map(&:data).sort
     }
 
