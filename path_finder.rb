@@ -2,66 +2,68 @@ require_relative "core_ext/object"
 require 'set'
 
 class PathFinder
-  class Step
+  class StepList
     include Comparable
-    attr_reader :from, :to, :depth, :cost, :profit
+    attr_reader :previous, :uid, :depth, :cost, :profit
 
-    def initialize(path_finder, from, to, profit, cost, depth);
-      @from, @to = from, to
+    def initialize(path_finder, previous, uid, profit, cost, depth);
+      @previous, @uid = previous, uid
       @profit, @cost, @depth = profit, cost, depth
+      @origin = path_finder.origin
       @heuristic_method = path_finder.heuristic
     end
 
     def <=>(other); heuristic <=> other.heuristic; end
 
     def heuristic
-      @_heuristic ||= @heuristic_method.call(profit, cost, depth)
+      @_heuristic ||= @heuristic_method.call(@origin, self)
     end
 
-    def to_a; [from, to, profit, cost, depth]; end
-    def to_s; "[#{from}=>#{to}|#{heuristic}|#{profit}|#{cost}|#{depth}]" end
+    def to_a; [previous, uid, profit, cost, depth]; end
+    def to_s; "[#{previous.uid}=>#{uid}|#{heuristic}|#{profit}|#{cost}|#{depth}]" end
   end
 
   module Euristiques
     class ComparableArray < Array; include Comparable; end
 
-    def self.roi(profit, cost, _)
-      roi = (cost > 0) ? (profit-cost)/cost.to_f : -1
-      ComparableArray.new([roi, profit])
+    def self.return_on_invest(_, step)
+      roi = (step.cost > 0) ? (step.profit-step.cost)/step.cost.to_f : -1
+      ComparableArray.new([roi, step.profit])
     end
 
-    def self.oil_stain(_, _, depth); -depth; end
+    def self.oil_stain(_, step); -step.depth; end
+
+    def self.crow_flies(origin, step);
+      -origin.distance(step.uid).to_i
+    end
   end
 
-  attr_reader :heuristic
+  attr_reader :origin, :heuristic
 
-  def initialize(grid, from, break_if: nil, is_visitable: nil,
+  def initialize(grid, origin, break_if: nil, is_visitable: nil,
     move_cost: nil, move_profit: nil, move_size: 1)
-    @grid, @from, @move_size = grid, from, move_size
+    @grid, @origin, @move_size = grid, origin, move_size
     @break_if, @is_visitable = break_if, is_visitable
     @move_cost, @move_profit = move_cost, move_profit
   end
 
   # Shortest mean that we go first on low scoring
   def shortest_path(to)
-    return self.class.no_result unless @grid[to]&.accessible?(@unit_context)
+    return self.class.no_result unless @is_visitable.call(@grid[to])
     @heuristic = PathFinder::Euristiques.method(:oil_stain)
-    dijkstra(
-      to: to,
-      break_if:       @break_if     || -> (current,to) { current&.from == to },
-      is_visitable:   @is_visitable || -> (cell) { cell.accessible?(@unit_context) }
+    dijkstra(to: to,
+      break_if: @break_if || -> (current,to) { current.uid == to }
     )
     generate_result(to)
   end
 
   # Shortest mean that we go first on high scoring
   def longest_path(max_depth: Float::INFINITY)
-    @heuristic = PathFinder::Euristiques.method(:roi)
+    @heuristic = PathFinder::Euristiques.method(:return_on_invest)
     dijkstra(
-      break_if:       @break_if     || -> (current,to) { current && (current.depth > max_depth) },
-      is_visitable:   @is_visitable || -> (cell) { cell.accessible?(@unit_context) },
-      move_profit:    @move_profit  || -> (current, neighbor) { current.cost + neighbor.cost },
-      move_cost:      @move_cost    || -> (current, neighbor) { current.depth + 1 },
+      break_if:    @break_if    || -> (current, to) { current.depth > max_depth },
+      move_profit: @move_profit || -> (current, neighbor) { current.cost + neighbor.cost },
+      move_cost:   @move_cost   || -> (current, neighbor) { current.depth + 1 },
     )
     # Max by [ROI, cost] with spaceship operator
     to = @visited.max { |(_, v1), (_, v2)|
@@ -86,13 +88,13 @@ class PathFinder
   end
 
   def generate_result(to)
-    path, pf_step = [to], @visited[to]
-    return self.class.no_result if pf_step.nil? || to == @from
+    path, to_step = [], @visited[to]
+    return self.class.no_result if to_step.nil? || to == @origin
 
-    profit, cost, depth = pf_step.profit, pf_step.cost, pf_step.depth
-    while(pf_step.to != @from)
-      path.unshift(pf_step.to)
-      pf_step = @visited[pf_step.to]
+    profit, cost, depth = to_step.profit, to_step.cost, to_step.depth
+    while(to_step.uid != @origin)
+      path.unshift(to_step.uid)
+      to_step = to_step.previous
     end
 
     fetch_key = (@move_size < path.length) ? @move_size-1 : -1
@@ -113,13 +115,13 @@ class PathFinder
     }
   )
     @visited, current = {}, nil;
-    to_visit = [ Step.new(self, @from, to, 0, 0, 0) ]
-    while(!to_visit.empty? && !break_if.call(current, to))
+    to_visit = [ StepList.new(self, nil, @origin, 0, 0, 0) ]
+    loop do
       current = to_visit.pop;
-      @visited[current.from] ||= begin
-        @grid[current.from].neighbors.each do |neighbor|
+      @visited[current.uid] ||= begin
+        @grid[current.uid].neighbors.each do |neighbor|
           next if !is_visitable.call(@grid[neighbor.to])
-          next_step = Step.new(self, neighbor.to, current.from,
+          next_step = StepList.new(self, current, neighbor.to,
             move_profit.call(current, neighbor),
             move_cost.call(current, neighbor),
             current.depth + 1)
@@ -130,11 +132,7 @@ class PathFinder
         end
         current
       end
+      break if to_visit.empty? || break_if.call(current, to)
     end
   end
 end
-
-
-# TODO :
-#  1?) Replace Set if there's one equal and we go a better heuristic
-#  2?) change the ponderation of neighbor ? add anotheir indicator.

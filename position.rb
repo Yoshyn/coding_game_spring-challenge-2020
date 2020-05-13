@@ -72,8 +72,8 @@ end
 
 class TorPosition < Position
   def initialize(x,y, max_x, max_y);
-    super(x,y)
     @max_x,@max_y=max_x,max_y;
+    clamp!(x,y)
   end
 
   def circle_area(radius);
@@ -88,15 +88,29 @@ class TorPosition < Position
     end
   end
 
-  def y;
-    @y=0 if @y > @max_y
-    @y=@max_y if @y < 0
-    return @y
+  def move_north!(cell=1); clamp_y!(y-cell); self; end
+  def move_east! (cell=1); clamp_x!(x+cell); self; end
+  def move_south!(cell=1); clamp_y!(y+cell); self; end
+  def move_west! (cell=1); clamp_x!(x-cell); self;  end
+
+  def distance(other)
+    dist_x = (other.x - x).abs
+    dists_x = [dist_x ** 2]
+    dists_x << (dist_x - @max_x).abs ** 2 if dist_x > @max_x.to_f / 2
+    dist_y = (other.y - y).abs
+    dists_y = [dist_y ** 2]
+    dists_y << (dist_y - @max_y).abs ** 2 if dist_y > @max_y.to_f / 2
+    Math.sqrt(dists_x.min + dists_y.min)
   end
 
-  def x;
-    @x=0 if @x > @max_x
-    @x=@max_x if @x < 0
-    return @x
+  private
+  def clamp!(x,y)
+    clamp_x!(x); clamp_y!(y)
+  end
+  def clamp_x!(x)
+    @x = x.between?(0, @max_x) ? x : @max_x - x.abs
+  end
+  def clamp_y!(y)
+    @y = y.between?(0, @max_y) ? y : @max_y - y.abs
   end
 end

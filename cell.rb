@@ -35,12 +35,12 @@ class Cell
 end
 
 class GameCell < Cell
-  def accessible?(unit_context=nil)
-    if unit_context && data.is_a?(PacMan)
+  def accessible_for?(unit=nil)
+    if unit && data.is_a?(PacMan)
       if data.player.include_pm?(data.uid)
         return false
       else
-        return data.can_beat?(unit_context.type_id)
+        return data.can_beat?(unit.type_id)
       end
     end
     return data != '#' if data.is_a?(String)

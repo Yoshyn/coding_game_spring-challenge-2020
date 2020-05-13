@@ -72,17 +72,15 @@ class PacMan
   end
 
   def action_move
-    kind = "0" if @targetable.target_enemy
-    kind = (!kind && @targetable.target_bullet) ? "B" : "D"
-    # TODO : Remove only the X first from the path
-    # Exemple : longest path will block everything overwise
-    @targetable.path.each do
-      # TODO : is turn_targeted_pos still use ?
-      game.turn_targeted_pos << pos
-      game.grid_turn[pos].data = '#'
+    if to = @targetable.next
+      @targetable.path.take(5).each do
+        game.turn_targeted_pos << pos
+        game.grid_turn[pos].data = '#'
+      end
+      "MOVE #{uid} #{to.x} #{to.y} #{@targetable.kind}-#{ability_cooldown}"
+    else
+      STDERR.puts "No possible action for #{self} !"
     end
-    to = @targetable.next
-    target_path_data && "MOVE #{uid} #{to.x} #{to.y} #{kind}#{ability_cooldown}#{to.x}#{to.y}"
   end
 
   def next_action

@@ -3,14 +3,17 @@ require "pry-byebug"
 require_relative "../core_ext/hash"
 require_relative "./helper"
 require_relative "../path_finder"
+require_relative "../targetable"
 require_relative "../cell"
 require 'benchmark'
 
 class TestCell < Cell
-  def accessible?(_ = nil ); data != '#'; end
+  def accessible_for?(_ = nil ); data != '#'; end
 end
 
 class PathFinderTest < Minitest::Test
+
+  IS_VISITABLE = -> (cell) { cell && cell.accessible_for?(nil) }
 
   def assert_hash_includes(hash1, hash2)
     if hash1.include?(hash2)
@@ -29,13 +32,13 @@ class PathFinderTest < Minitest::Test
       ['.', '#', '#', '#', '#', '.', '#', '.'],
       ['.', '.', '.', '.', '.', '.', '#', '.'],
     ]
-    grid = init_grid(data, GameCell);
+    grid = init_grid(data, TestCell);
 
     assert_equal({
         next: Position.new(0,1), # dir: :north,
         depth: 1, profit: 0, cost: 1,
         path: [Position.new(0,1)]},
-      PathFinder.new(grid, Position.new(0,2)).shortest_path(
+      PathFinder.new(grid, Position.new(0,2), is_visitable: IS_VISITABLE).shortest_path(
         Position.new(0,1)))
 
     assert_equal({
@@ -46,7 +49,7 @@ class PathFinderTest < Minitest::Test
           Position.new(0,1), Position.new(0,2),
           Position.new(0,3), Position.new(0,4),
           Position.new(0,5)]},
-      PathFinder.new(grid, Position.new(2,0)).shortest_path(
+      PathFinder.new(grid, Position.new(2,0), is_visitable: IS_VISITABLE).shortest_path(
         Position.new(0,5)))
 
     assert_equal({
@@ -58,7 +61,7 @@ class PathFinderTest < Minitest::Test
         Position.new(5,3), Position.new(4,3),
         Position.new(3,3), Position.new(2,3)
       ]},
-      PathFinder.new(grid, Position.new(2,1)).shortest_path(
+      PathFinder.new(grid, Position.new(2,1), is_visitable: IS_VISITABLE).shortest_path(
         Position.new(2,3)))
 
     assert_equal({
@@ -70,15 +73,15 @@ class PathFinderTest < Minitest::Test
         Position.new(5,3), Position.new(4,3),
         Position.new(3,3), Position.new(2,3)
       ]},
-      PathFinder.new(grid, Position.new(2,0)).shortest_path(
+      PathFinder.new(grid, Position.new(2,0), is_visitable: IS_VISITABLE).shortest_path(
         Position.new(2,3)))
 
-    assert_equal(PathFinder.no_result, PathFinder.new(grid, Position.new(2,0)).shortest_path(Position.new(10,10)))
+    assert_equal(PathFinder.no_result, PathFinder.new(grid, Position.new(2,0), is_visitable: IS_VISITABLE).shortest_path(Position.new(10,10)))
 
-    assert_equal(PathFinder.no_result, PathFinder.new(grid, Position.new(2,0)).shortest_path(
+    assert_equal(PathFinder.no_result, PathFinder.new(grid, Position.new(2,0), is_visitable: IS_VISITABLE).shortest_path(
       Position.new(1,1)))
 
-    assert_equal(PathFinder.no_result, PathFinder.new(grid, Position.new(0,0)).shortest_path(
+    assert_equal(PathFinder.no_result, PathFinder.new(grid, Position.new(0,0), is_visitable: IS_VISITABLE).shortest_path(
       Position.new(7,0)))
   end
 
@@ -91,13 +94,13 @@ class PathFinderTest < Minitest::Test
       ['.', '#', '#', '#', '#', '.', '#', '.'],
       ['.', '.', '.', '.', '.', '.', '#', '.'],
     ]
-    grid = init_grid(data, GameCell);
+    grid = init_grid(data, TestCell);
 
     assert_equal({
       next: Position.new(0,1), # dir: :north,
       profit: 0, cost: 1, depth: 1,
       path: [Position.new(0,1)] },
-      PathFinder.new(grid, Position.new(0,2), move_size: 2).shortest_path(
+      PathFinder.new(grid, Position.new(0,2), is_visitable: IS_VISITABLE, move_size: 2).shortest_path(
         Position.new(0,1) )
       )
 
@@ -105,7 +108,7 @@ class PathFinderTest < Minitest::Test
       next: Position.new(0,0), # dir: :north,
       profit: 0, cost: 1, depth: 2,
       path: [Position.new(0,1), Position.new(0,0)]},
-      PathFinder.new(grid, Position.new(0,2), move_size: 2).shortest_path(
+      PathFinder.new(grid, Position.new(0,2), is_visitable: IS_VISITABLE, move_size: 2).shortest_path(
         Position.new(0,0) )
       )
 
@@ -113,7 +116,7 @@ class PathFinderTest < Minitest::Test
       next: Position.new(0,1), # dir: :north,
       profit: 0, cost: 2, depth: 3,
       path: [Position.new(0,2), Position.new(0,1), Position.new(0,0)]},
-      PathFinder.new(grid, Position.new(0,3), move_size: 2).shortest_path(
+      PathFinder.new(grid, Position.new(0,3), is_visitable: IS_VISITABLE, move_size: 2).shortest_path(
         Position.new(0,0))
       )
 
@@ -121,7 +124,7 @@ class PathFinderTest < Minitest::Test
       next: Position.new(0,0), # dir: :north,
       profit: 0, cost: 1, depth: 3,
       path: [Position.new(0,2), Position.new(0,1), Position.new(0,0)]},
-      PathFinder.new(grid, Position.new(0,3), move_size: 3).shortest_path(
+      PathFinder.new(grid, Position.new(0,3), is_visitable: IS_VISITABLE, move_size: 3).shortest_path(
         Position.new(0,0))
       )
   end
@@ -132,14 +135,14 @@ class PathFinderTest < Minitest::Test
       ['.', '.', '.', '.', '.', '.'],
       ['#', '#', '.', '#', '#', '#'],
     ]
-    grid = init_tor_grid(data, GameCell);
+    grid = init_tor_grid(data, TestCell);
 
     assert_equal({
       next: Position.new(0,1), # dir: :west,
       profit: 0, cost: 2, depth: 2,
       path: [Position.new(0,1), Position.new(5,1)]
     },
-      PathFinder.new(grid, Position.new(1,1)).shortest_path(
+      PathFinder.new(grid, Position.new(1,1), is_visitable: IS_VISITABLE).shortest_path(
         Position.new(5,1)))
 
     grid[Position.new(0,1)].data = '#'
@@ -150,7 +153,7 @@ class PathFinderTest < Minitest::Test
         Position.new(2,1), Position.new(3,1),
         Position.new(4,1), Position.new(5,1)
       ]},
-      PathFinder.new(grid, Position.new(1,1)).shortest_path(
+      PathFinder.new(grid, Position.new(1,1), is_visitable: IS_VISITABLE).shortest_path(
         Position.new(5,1)))
   end
 
@@ -166,13 +169,13 @@ class PathFinderTest < Minitest::Test
     grid = init_grid(data, TestCell);
 
     assert_equal(PathFinder.no_result,
-      PathFinder.new(grid, Position.new(7,5)).longest_path)
+      PathFinder.new(grid, Position.new(7,5), is_visitable: IS_VISITABLE).longest_path)
 
     assert_equal({
       next: Position.new(3,5), # dir: :south,
       profit: 1, depth: 1, cost: 1,
       path: [Position.new(3,5)]},
-      PathFinder.new(grid, Position.new(2,5)).longest_path)
+      PathFinder.new(grid, Position.new(2,5), is_visitable: IS_VISITABLE).longest_path)
 
     assert_equal({
       next: Position.new(0,2), # dir: :south,
@@ -181,13 +184,13 @@ class PathFinderTest < Minitest::Test
         Position.new(0,2), Position.new(0,3),
         Position.new(0,4), Position.new(0,5)
       ]},
-      PathFinder.new(grid, Position.new(0,1)).longest_path)
+      PathFinder.new(grid, Position.new(0,1), is_visitable: IS_VISITABLE).longest_path)
 
     grid[Position.new(1,0)].data = '.'
 
     ## skip thisSee test_longest_path_finder_loop
     # assert_hash_includes(
-    #   PathFinder.new(grid, Position.new(0,1)).longest_path,
+    #   PathFinder.new(grid, Position.new(0,1), is_visitable: IS_VISITABLE).longest_path,
     #   { next: Position.new(0,0), depth: 13, cost: 13 } #dir: :north
     # )
 
@@ -195,19 +198,19 @@ class PathFinderTest < Minitest::Test
     grid[Position.new(0,0)].set_neighbor(Position.new(7,0), 0, :west)
 
     assert_hash_includes(
-      PathFinder.new(grid, Position.new(0,1)).longest_path,
+      PathFinder.new(grid, Position.new(0,1), is_visitable: IS_VISITABLE).longest_path,
       { next: Position.new(0,2), depth: 4 } #dir: :south
     )
 
     grid[Position.new(0,0)].get_neighbor(Position.new(7,0)).cost = 2
 
     assert_hash_includes(
-      PathFinder.new(grid, Position.new(0,1), move_size: 1).longest_path,
+      PathFinder.new(grid, Position.new(0,1), is_visitable: IS_VISITABLE, move_size: 1).longest_path,
       { next: Position.new(0,0) } #dir: :north
     )
 
     assert_hash_includes(
-      PathFinder.new(grid, Position.new(0,1), move_size: 3).longest_path,
+      PathFinder.new(grid, Position.new(0,1), is_visitable: IS_VISITABLE, move_size: 3).longest_path,
       { next: Position.new(7,0) } #dir: :north
     )
   end
@@ -225,7 +228,7 @@ class PathFinderTest < Minitest::Test
     ]
     grid = init_grid(data, TestCell);
     assert_hash_includes(
-      PathFinder.new(grid, Position.new(0,0)).longest_path,
+      PathFinder.new(grid, Position.new(0,0), is_visitable: IS_VISITABLE).longest_path,
       { next: Position.new(1,0), depth: 8, cost: 8 }
     )
     data ||= [
@@ -237,7 +240,7 @@ class PathFinderTest < Minitest::Test
     ]
     grid = init_grid(data, TestCell);
     assert_hash_includes(
-      PathFinder.new(grid, Position.new(3,0)).longest_path,
+      PathFinder.new(grid, Position.new(3,0), is_visitable: IS_VISITABLE).longest_path,
       { next: Position.new(1,0), depth: 8, cost: 8 }
     )
   end
@@ -257,13 +260,13 @@ class PathFinderTest < Minitest::Test
       next: Position.new(0,0),  # dir: :north,
       profit: 1, depth: 1, cost: 1,
       path: [ Position.new(0,0) ]},
-      PathFinder.new(grid, Position.new(0,1)).longest_path(max_depth: 1))
+      PathFinder.new(grid, Position.new(0,1), is_visitable: IS_VISITABLE).longest_path(max_depth: 1))
 
     assert_equal({
       next: Position.new(0,2), # dir: :north,
       profit: 2, depth: 2, cost: 2,
       path: [ Position.new(0,2), Position.new(0,3) ]},
-      PathFinder.new(grid, Position.new(0,1)).longest_path(max_depth: 2))
+      PathFinder.new(grid, Position.new(0,1), is_visitable: IS_VISITABLE).longest_path(max_depth: 2))
   end
 
   # # # Max cost is only to reduce the possibility count.
@@ -276,7 +279,7 @@ class PathFinderTest < Minitest::Test
     break_if = -> (current, to) {
       current && (current.cost > max_cost || current.depth >= max_depth)
     }
-    is_visitable = -> (cell) { cell.accessible? }
+    is_visitable = -> (cell) { cell.accessible_for? }
     move_profit  = -> (current, neighbor) {
       current.profit + grid[neighbor.to].data.to_i
     }
@@ -285,7 +288,7 @@ class PathFinderTest < Minitest::Test
     }
     pf = PathFinder.new(grid, from,
       break_if: break_if,
-      is_visitable: is_visitable,
+      is_visitable: IS_VISITABLE,
       move_profit: move_profit,
       move_cost: move_cost,
       move_size: move_size
@@ -328,7 +331,48 @@ class PathFinderTest < Minitest::Test
         Position.new(1,1), move_size: 2))
   end
 
+  def test_scoring_path_finder_for_pac_man
+    data ||= [
+      ['#', '#', '2', '2', '2', '#'],
+      ['5', '@', '1', '1', '1', '1'],
+      ['#', '#', '1', '1', '#', '#'],
+    ]
+    grid = init_grid(data, TestCell);
+
+    assert_equal({
+      next: Position.new(0,1),
+      profit: 5, depth: 1, cost: 1,
+      path: [ Position.new(0,1) ]},
+      scoring_path_finder(grid, Position.new(1,1)))
+
+    assert_equal({
+      next: Position.new(0,1),
+      profit: 5, depth: 1, cost: 1,
+      path: [ Position.new(0,1) ]},
+      scoring_path_finder(grid, Position.new(1,1), move_size: 2))
+  end
+
+  def test_pac_man_scoring_path
+    data ||= [
+      ['#', '#', '2', '2', '2', '#'],
+      ['5', '@', '1', '1', '1', '1'],
+      ['#', '#', '1', '1', '#', '#'],
+    ]
+    grid = init_grid(data, GameCell)
+    pacman = OpenStruct.new(position: Position.new(1,1), speed: 1)
+
+    pf = TargetableCell::ScoringPathFinder.new(grid, pacman)
+    assert_equal({
+      next: Position.new(0,1),
+      profit: 5, depth: 1, cost: 1,
+      path: [ Position.new(0,1) ]},
+      pf.path_finder)
+  end
+
   def test_performance
+    # Should be able to run 10 times in less of 30 ms
+    #  * 1 shortest PF (at ~ 25)
+    #  * 1 longest_path (at depth 25)
     data ||= [
       ['.', '#', '.', '.', '.', '.', '#', '.' ]*4,
       ['.', '.', '.', '#', '#', '.', '#', '.' ]*4,
@@ -340,18 +384,16 @@ class PathFinderTest < Minitest::Test
     grid = init_grid(data, TestCell);
 
     pf = nil
-    max_value = 30 #ms
+    max_value = 20 #ms
     running_time = Benchmark.realtime {
       10.times do
-        pf = PathFinder.new(grid, Position.new(0,0))
-        pf = pf.shortest_path(Position.new(30,28))
-        # pf = PathFinder.new(grid,  Position.new(rand() + 15 %grid.width,rand() + 15 %grid.height)).longest_path(max_depth: 10)
+        pf = PathFinder.new(grid, Position.new(0,0), is_visitable: IS_VISITABLE)
+        pf = pf.shortest_path(Position.new(13,13))
+        # pf = pf.shortest_path(Position.new(30,28))
+        pf = PathFinder.new(grid, Position.new(0,0), is_visitable: IS_VISITABLE).longest_path(max_depth: 25)
       end
     } * 1000
-    puts "pf : #{pf.except(:path)}"
+    # puts "pf : #{pf.except(:path)}"
     refute_operator running_time, :>, max_value
   end
 end
-
-
-# TODO : shortest & longest : remove le is Visitable avec cell.accessible ?

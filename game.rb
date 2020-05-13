@@ -29,17 +29,17 @@ class Game
     height.times do |row_index|
       row = gets.chomp
       row.split('').each_with_index do |value, col_index|
-        c_pos = TorPosition.new(col_index, row_index, width - 1 , height - 1)
+        c_pos = TorPosition.new(col_index, row_index, width, height)
         @grid[c_pos] = GameCell.new(c_pos, value)
       end
     end
     @grid.each do |cell|
       cell_pos = cell.uid
-      if grid[cell_pos].accessible?
+      if grid[cell_pos].accessible_for?
         @visible_pellets[cell_pos] = 1
         Position::DIRECTIONS.each do |dir|
           dir_pos = cell_pos.move(dir)
-          cell.set_neighbor(dir_pos, 1, dir) if grid[dir_pos].accessible?
+          cell.set_neighbor(dir_pos, 1, dir) if grid[dir_pos].accessible_for?
         end
       end
     end
@@ -81,10 +81,10 @@ class Game
     visible_pac_count = gets.to_i
     visible_pac_count.times do
       pac_id, player_id, x, y, type_id, speed_turns_left, ability_cooldown = gets.split(" ")
-      pac_pos = TorPosition.new(x.to_i, y.to_i, @grid.width-1, @grid.height-1)
+      pac_pos = TorPosition.new(x.to_i, y.to_i, @grid.width, @grid.height)
       pac_man = get_pac_man(player_id, pac_id.to_i)
       pac_man.update(
-        TorPosition.new(x.to_i, y.to_i, @grid.width-1, @grid.height-1),
+        TorPosition.new(x.to_i, y.to_i, @grid.width, @grid.height),
         type_id,
         speed_turns_left.to_i,
         ability_cooldown.to_i)
@@ -93,7 +93,7 @@ class Game
     visible_pellets_count = gets.to_i # all pellets in sight
     visible_pellets_count.times do
       x, y, value = gets.split(" ").collect {|x| x.to_i}
-      b_pos = TorPosition.new(x, y, @grid.width-1, @grid.height-1)
+      b_pos = TorPosition.new(x, y, @grid.width, @grid.height)
       @visible_pellets[b_pos] = value
     end
     STDERR.puts "T#{turn_number} Total/visible Pellet => #{@visible_pellets.length()}/#{visible_pellets_count}"

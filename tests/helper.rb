@@ -40,7 +40,7 @@ def init_tor_grid(data = nil, cell_klass = nil)
 
   data.each_with_index do |row, row_index|
     row.each_with_index.each do |value, col_index|
-      c_pos = TorPosition.new(col_index, row_index, width - 1 , height - 1)
+      c_pos = TorPosition.new(col_index, row_index, width, height)
       cell = (cell_klass || Cell).new(c_pos, value)
       Position::DIRECTIONS.each do |dir|
         dir_pos = c_pos.move(dir)
