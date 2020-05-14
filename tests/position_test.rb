@@ -104,4 +104,39 @@ class PositionTest < Minitest::Test
     other = TorPosition.new(3,4, max_x, max_y)
     assert_equal 1.5, tp.distance(other).ceil(1)
   end
+
+  def bresenham(x0, y0, x1, y1)
+    coords = [[x0, y0]]
+    return coords if (x0 == x1 && y0 == y1)
+    dx     = (x1 - x0).abs
+    dy     = -(y1 - y0).abs
+    step_x = x0 < x1 ? 1 : -1
+    step_y = y0 < y1 ? 1 : -1
+    err    = dx + dy
+
+    begin
+      e2 = 2*err;
+      if e2 >= dy
+        err += dy
+        x0 += step_x
+      end
+      if e2 <= dx
+        err += dx
+        y0 += step_y
+      end
+      coords << [x0, y0]
+    end until (x0 == x1 && y0 == y1)
+    coords.uniq
+  end
+
+  def test_bresenham
+    pac_pos = Position.new(0,0)
+    next_bullet = Position.new(7,9)
+    real = bresenham(pac_pos.x, pac_pos.y, next_bullet.x, next_bullet.y)
+    assert_equal real, pac_pos.bresenham(next_bullet).map(&:to_a)
+    pac_pos = Position.new(9,17)
+    next_bullet = Position.new(9,17)
+    real = bresenham(pac_pos.x, pac_pos.y, next_bullet.x, next_bullet.y)
+    assert_equal real, pac_pos.bresenham(next_bullet).map(&:to_a)
+  end
 end

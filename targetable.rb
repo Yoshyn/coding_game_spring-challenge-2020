@@ -1,97 +1,156 @@
 require_relative 'pac_man'
 require_relative 'path_finder'
+require 'benchmark'
 
 class TargetableCell
+
+  attr_reader :pacman
+
   def initialize(pacman)
     @pacman = pacman
-    @game = Game.instance
     @_cached = {}
+    @_visible_enemies = []
   end
 
-  def enemies; player(nil).pacmans;   end
-  def allies;  pacman.player.pacmans; end
+  def game; Game.instance; end
 
-  def reachable_enemies;
-    enemies.select { |enemy| pacman.can_reach?(enemy) }
+  def enemies; game.player(nil).pacmans; end
+  def allies;  pacman.player.pacmans;     end
+
+  def visible_enemies; @_visible_enemies; end
+
+  def set_visible_enemy(pacman);
+    @_visible_enemies << pac_man
+  end
+
+  MAX_DISTANCE_TARGET = 4
+  def targetable_enemy;
+    visible_enemies.select { |enemy|
+      pacman > enemy && pacman.distance(enemy) < MAX_DISTANCE_TARGET
+    }.min { |pac1, pac2|
+      pac1.distance(pac2)
+    }
   end
 
   def target_enemy
     @_cached[__method__] ||= begin
-      enemy = reachable_enemies.detect { |enemy| pacman > enemy }
-      if enemy
-        pf = PathFinder.new(game.grid_turn, pacman.position)
-        pf.shortest_path(enemy.position)
-      end
+      STDERR.puts "<target_enemy for=#{pacman}>"
+      result = nil
+      enemy = targetable_enemy
+      ms = Benchmark.realtime {
+        if enemy
+          pf = PathFinder.new(
+            game.grid_turn, pacman.position,
+            is_visitable: -> (cell) { cell && cell.accessible_for?(pacman) }
+            )
+          result = pf.shortest_path(enemy.position).merge(kind: :pac)
+        end
+      } * 1000
+      STDERR.puts "<target_enemy take=#{ms}ms>"
+      result
     end
   end
 
   def must_switch?
-    reachable_enemies && target_enemy.nil?
+    @_cached[__method__] ||= begin
+      STDERR.puts "#{pacman} -> visible_enemies [#{visible_enemies}]"
+      visible_enemies && targetable_enemy.nil?
+    end
   end
 
   def target_scoring
     @_cached[__method__] ||= begin
-      spf = ScoringPathFinder.new(game.grid_turn, pacman)
-      spf.path_finder
+      STDERR.puts "<target_scoring for=#{pacman}>"
+      res = nil
+      ms = Benchmark.realtime {
+        spf = ScoringPathFinder.new(game.grid_turn, pacman)
+        res = spf.path_finder.merge(kind: :sco)
+      } * 1000
+      STDERR.puts "<target_scoring take=#{ms}ms>"
+      res
     end
   end
 
   def target_bullet
     @_cached[__method__] ||= begin
-      already_used_pos = game.turn_targeted_pos.to_a
-      bullets = game.visible_pellets.except(*already_used_pos)
-      bullets.sort_by { |pos, pts|
-        pos.distance(pacman.position) - pts
-      }.shift
+      STDERR.puts "<target_bullet for=#{pacman}>"
+      next_bullet, path, pts = nil, nil, 0
+      ms = Benchmark.realtime {
+        mss = Benchmark.realtime {
+          STDERR.puts "<sorting_distance over=#{game.visible_pellets.count}>"
+          next_bullet, pts = game.visible_pellets.sort_by { |pos, pts|
+            pos.distance(pacman.position) - pts
+          }.shift
+        } * 1000
+        STDERR.puts "<sorting_distance take=#{mss}ms count=#{game.visible_pellets.count}>"
+        msb = Benchmark.realtime {
+          STDERR.puts "<bresenham for(#{pacman.position}) to(#{next_bullet})"
+          path = pacman.position.bresenham(next_bullet)
+        } * 1000
+        STDERR.puts "<bresenham take=#{msb}ms count=#{path.count}>"
+      } * 1000
+      STDERR.puts "<target_bullet take=#{ms}ms>"
+      { next: next_bullet, path: path, value: pts, kind: :bul}
     end
   end
 
   def target
     @_cached[__method__] ||= begin
-      if target_enemy && target_enemy[:next]
-        target_enemy.merge(kind: :pac)
-      elsif target_scoring && target_scoring[:next]
-        target_scoring.merge(kind: :bul)
-      else
-        bullet_pos, pts = target_bullet
-        { next: bullet_pos, path: [bullet_pos], value: pts, kind: :def}
-      end
+      STDERR.puts "<target for=#{pacman}>"
+      result = nil
+      ms = Benchmark.realtime {
+        result = if target_enemy && target_enemy[:next]
+          target_enemy
+        # elsif target_scoring && target_scoring[:next]
+        #   target_scoring
+        elsif target_bullet && target_bullet[:next]
+          target_bullet
+        else
+          raise "This Should never hapen. No possible target ?"
+        end
+      } * 1000
+      STDERR.puts "</target for=#{pacman} take=#{ms}ms result=#{result}"
+      result
     end
   end
 
-  def next; target[:next];   end
-  def path; target[:path];   end
-  def value; target[:value]; end
-  def kind; target[:kind];   end
-  def clear_cache!; @_cached={};end
-
-  private
-  def can_instant_reach?(position)
-    cir_pos = pacman.position.circle_area(current_speed)
-    cir_pos.include?(position)
+  def next; target[:next];  end
+  def path; target[:path];  end
+  def value; target[:value];end
+  def kind; target[:kind];  end
+  def reset!;
+    @_visible_enemies = []
+    @_cached={};
   end
 
+  private
   class ScoringPathFinder < PathFinder
 
     MAX_PROFIT = 10
     MAX_DEPTH = 20
 
     def initialize(grid, pacman)
-      super(grid, pacman.position,
+      @pacman = pacman
+      super(grid, @pacman.position,
         break_if: method(:break_if),
         is_visitable: method(:is_visitable),
         move_cost: method(:move_cost),
         move_profit: method(:move_profit),
-        move_size: pacman.speed
+        move_size: @pacman.current_speed
       )
     end
 
     def path_finder()
       @heuristic = PathFinder::Euristiques.method(:return_on_invest)
-      dijkstra(
-        break_if: @break_if, is_visitable: @is_visitable,
-        move_profit: @move_profit, move_cost: @move_cost
-      )
+
+      # ms = Benchmark.realtime {
+        dijkstra(
+          break_if: @break_if, is_visitable: @is_visitable,
+          move_profit: @move_profit, move_cost: @move_cost
+        )
+      # } * 1000
+      # STDERR.puts "<dijkstra take #{ms}ms"
+
       # Max by [ROI, cost] with spaceship operator
       to = @visited.max { |(_, v1), (_, v2)| v1 <=> v2 }.first
       generate_result(to)
@@ -113,7 +172,7 @@ class TargetableCell
     end
 
     def move_cost(current, neighbor)
-      ((current.depth + neighbor.cost).to_f / @move_size).round
+      ((current.cost.to_f + neighbor.cost) / @move_size).round
     end
   end
 end

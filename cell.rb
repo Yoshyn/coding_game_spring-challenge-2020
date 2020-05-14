@@ -37,14 +37,13 @@ end
 class GameCell < Cell
   def accessible_for?(unit=nil)
     if unit && data.is_a?(PacMan)
-      if data.player.include_pm?(data.uid)
+      if unit.player.include_pm?(data.uid)
         return false
       else
-        return data.can_beat?(unit.type_id)
+        return unit.type > data.type
       end
     end
     return data != '#' if data.is_a?(String)
-    return true if data.is_a?(Integer)
-    raise "Unexpected data : #{data.class} - #{data}"
+    return true
   end
 end

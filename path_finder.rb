@@ -1,5 +1,6 @@
 require_relative "core_ext/object"
 require 'set'
+require 'benchmark'
 
 class PathFinder
   class StepList
@@ -118,20 +119,25 @@ class PathFinder
     to_visit = [ StepList.new(self, nil, @origin, 0, 0, 0) ]
     loop do
       current = to_visit.pop;
-      @visited[current.uid] ||= begin
-        @grid[current.uid].neighbors.each do |neighbor|
-          next if !is_visitable.call(@grid[neighbor.to])
-          next_step = StepList.new(self, current, neighbor.to,
-            move_profit.call(current, neighbor),
-            move_cost.call(current, neighbor),
-            current.depth + 1)
-          insert_at = to_visit.bsearch_index { |step|
-            step.heuristic >= next_step.heuristic
-          } || -1
-          to_visit.insert(insert_at, next_step)
+      # one_loop = Benchmark.realtime {
+        @visited[current.uid] ||= begin
+          @grid[current.uid].neighbors.each do |neighbor|
+            next if !is_visitable.call(@grid[neighbor.to])
+            next_step = nil
+            next_step = StepList.new(self, current, neighbor.to,
+              move_profit.call(current, neighbor),
+              move_cost.call(current, neighbor),
+              current.depth + 1)
+            insert_at = to_visit.bsearch_index { |step|
+              step.heuristic >= next_step.heuristic
+            } || -1
+            to_visit.insert(insert_at, next_step)
+          end
+          current
         end
-        current
-      end
+        # } * 1000
+        # STDERR.puts "one_loop take #{one_loop}ms | #{@visited.size()} | #{to_visit.count}"
+        # binding.pry if one_loop > 10
       break if to_visit.empty? || break_if.call(current, to)
     end
   end

@@ -22,6 +22,8 @@ class Grid2D
 
   def size(); width * height; end
 
+  def ensure_sorted!; @_data.sort!; end
+
   def [](position);         get(position.x,position.y);         end
   def []=(position, value); set(position.x, position.y, value); end
 

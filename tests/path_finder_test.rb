@@ -337,29 +337,8 @@ class PathFinderTest < Minitest::Test
       ['5', '@', '1', '1', '1', '1'],
       ['#', '#', '1', '1', '#', '#'],
     ]
-    grid = init_grid(data, TestCell);
-
-    assert_equal({
-      next: Position.new(0,1),
-      profit: 5, depth: 1, cost: 1,
-      path: [ Position.new(0,1) ]},
-      scoring_path_finder(grid, Position.new(1,1)))
-
-    assert_equal({
-      next: Position.new(0,1),
-      profit: 5, depth: 1, cost: 1,
-      path: [ Position.new(0,1) ]},
-      scoring_path_finder(grid, Position.new(1,1), move_size: 2))
-  end
-
-  def test_pac_man_scoring_path
-    data ||= [
-      ['#', '#', '2', '2', '2', '#'],
-      ['5', '@', '1', '1', '1', '1'],
-      ['#', '#', '1', '1', '#', '#'],
-    ]
     grid = init_grid(data, GameCell)
-    pacman = OpenStruct.new(position: Position.new(1,1), speed: 1)
+    pacman = OpenStruct.new(position: Position.new(1,1), current_speed: 1)
 
     pf = TargetableCell::ScoringPathFinder.new(grid, pacman)
     assert_equal({
@@ -369,10 +348,7 @@ class PathFinderTest < Minitest::Test
       pf.path_finder)
   end
 
-  def test_performance
-    # Should be able to run 10 times in less of 30 ms
-    #  * 1 shortest PF (at ~ 25)
-    #  * 1 longest_path (at depth 25)
+  def test_performance_shortest_path
     data ||= [
       ['.', '#', '.', '.', '.', '.', '#', '.' ]*4,
       ['.', '.', '.', '#', '#', '.', '#', '.' ]*4,
@@ -381,19 +357,45 @@ class PathFinderTest < Minitest::Test
       ['.', '#', '#', '#', '#', '.', '.', '#' ]*4,
       ['.', '.', '.', '.', '.', '.', '#', '.' ]*4,
     ]*5
-    grid = init_grid(data, TestCell);
-
-    pf = nil
-    max_value = 20 #ms
+    grid = init_grid(data, GameCell);
+    Game.instance.grid_turn = grid
+    player = Player.new(1)
+    pacman = player.get_pac_man(1)
+    pacman.update(Position.new(0,0), "ROCK", 0, 8)
+    is_visitable = -> (cell) { cell && cell.accessible_for?(pacman) }
+    res = nil
+    max_value = 3 #ms
     running_time = Benchmark.realtime {
-      10.times do
-        pf = PathFinder.new(grid, Position.new(0,0), is_visitable: IS_VISITABLE)
-        pf = pf.shortest_path(Position.new(13,13))
-        # pf = pf.shortest_path(Position.new(30,28))
-        pf = PathFinder.new(grid, Position.new(0,0), is_visitable: IS_VISITABLE).longest_path(max_depth: 25)
-      end
+      pf = PathFinder.new(grid, Position.new(0,0), is_visitable: is_visitable)
+      res = pf.shortest_path(Position.new(14,14))
     } * 1000
-    # puts "pf : #{pf.except(:path)}"
+    assert_equal(28, res[:path].count)
+    refute_operator running_time, :>, max_value
+  end
+
+  def test_performance_scoring_path
+    data ||= [
+      ['.', '#', '.', '1', '5', '1', '#', '1' ]*4,
+      ['.', '.', '.', '#', '#', '1', '#', '1' ]*4,
+      ['.', '#', '.', '#', '1', '1', '5', '1' ]*4,
+      ['.', '#', '.', '1', '5', '1', '#', '#' ]*4,
+      ['.', '.', '.', '#', '#', '1', '1', '#' ]*4,
+      ['1', '5', '1', '1', '1', '1', '#', '1' ]*4,
+    ]*5
+    grid = init_grid(data, GameCell);
+    Game.instance.grid_turn = grid
+    player = Player.new(1)
+    pacman = player.get_pac_man(1)
+    pacman.update(Position.new(0,0), "ROCK", 0, 8)
+
+    res = nil
+    max_value = 3 #ms
+    running_time = Benchmark.realtime {
+      pf = TargetableCell::ScoringPathFinder.new(grid, pacman)
+      res = pf.path_finder
+    } * 1000
+    assert_equal(7, res[:path].count)
+
     refute_operator running_time, :>, max_value
   end
 end

@@ -13,7 +13,7 @@ class PacMan
   attr_reader :targetable
   attr_accessor :visible
 
-  GUESS_PATH_TURN_DIFF = 5
+  GUESS_PATH_TURN_DIFF = 3
 
   attr_historized(
     :position,         # position in the grid
@@ -21,7 +21,7 @@ class PacMan
     :speed_turns_left, # 0 => speed(1), 1..5 => speed(2)
     :ability_cooldown, # 0..8, usable at 0
     :turn_number       # turn number of the update
-  )
+    )
 
   def initialize(player, uid);
     @player, @uid, @visible = player, uid, false;
@@ -29,8 +29,8 @@ class PacMan
   end
 
   def reset!;
-    @visible = {}
-    @targetable.clear_cache!
+    @visible = false
+    targetable.reset!
   end
 
   def update(position, type_id, speed_turns_left, ability_cooldown)
@@ -41,7 +41,6 @@ class PacMan
     self.ability_cooldown = ability_cooldown
     self.turn_number = game.turn_number
     game.grid_turn[position].data = self
-    remove_bullet_positions!
   end
 
   # HELPERS
@@ -49,38 +48,63 @@ class PacMan
   def speed_enabled?(); (self.speed_turns_left.to_i > 0); end
   def current_speed;    speed_enabled? ? 2 : 1;           end
   def blocked?
-    !(position_changed? && (_positions.count < 2))
+    !position_changed? && (_positions.count > 1)
   end
 
   def action_switch
-    if ability_cooldown <= 0 && (blocked? || @targetable.must_switch?)
-      "SWITCH #{uid} #{type.weakness} B#{blocked?}-S#{@targetable.must_switch?}"
-    end
+    res = nil
+    STDERR.puts "<action_switch for=#{self}>"
+    ms = Benchmark.realtime {
+      if ability_cooldown <= 0 && (blocked? || targetable.must_switch?)
+        res ="SWITCH #{uid} #{type.weakness} B#{blocked?}-S#{targetable.must_switch?}"
+      end
+    } * 1000
+    STDERR.puts "<action_switch take=#{ms}ms res=#{res}>"
+    res
   end
 
   # ACTIONS GENERATIONS
   def action_speed
-    if ability_cooldown <= 0 && !blocked? &&
-      (
+    res = nil
+    STDERR.puts "<action_speed for=#{self}>"
+    ms = Benchmark.realtime {
+      if ability_cooldown <= 0 && !blocked? &&
         (
-          @targetable.target_enemy || # We can kill
-          pacman.player.score <= player(nil).score # Emergency need scoring
-        ) && !must_switch? # Not near to a killer
-      )
-      "SPEED #{uid} T#{!!@targetable.target_enemy}S#{pacman.player.score <= player(nil).score}"
-    end
+         (
+            targetable.target_enemy || # We can kill
+            pacman.player.score <= player(nil).score # Emergency need scoring
+          ) && !must_switch? # Not near to a killer
+         )
+        res = "SPEED #{uid} T#{!!targetable.target_enemy}S#{pacman.player.score <= player(nil).score}"
+      end
+    } * 1000
+    STDERR.puts "<action_speed take=#{ms}ms res=#{res}>"
+    res
   end
 
   def action_move
-    if to = @targetable.next
-      @targetable.path.take(5).each do
-        game.turn_targeted_pos << pos
-        game.grid_turn[pos].data = '#'
+    res = nil
+    STDERR.puts "<action_move for=#{self}>"
+    ms = Benchmark.realtime {
+      STDERR.puts "HERE1"
+      STDERR.puts "HERE1b #{targetable.next}"
+      if to = targetable.next
+        STDERR.puts "HERE 2"
+        STDERR.puts "HERE 2b #{targetable.path}"
+        (targetable.path.take(GUESS_PATH_TURN_DIFF) - [to]).each do |pos|
+          STDERR.puts "HERE 3 #{pos}"
+          game.turn_targeted_pos << pos
+          game.grid_turn[pos].data = '#'
+        end
+        res = "MOVE #{uid} #{to.x} #{to.y} #{targetable.kind}-#{ability_cooldown}"
+        STDERR.puts "HERE 3 #{res}"
+      else
+        STDERR.puts "No possible actions for #{self}"
+        raise "No possible action for #{self} !"
       end
-      "MOVE #{uid} #{to.x} #{to.y} #{@targetable.kind}-#{ability_cooldown}"
-    else
-      STDERR.puts "No possible action for #{self} !"
-    end
+    } * 1000
+    STDERR.puts "</action_move take #{ms}ms>"
+    res
   end
 
   def next_action
@@ -100,22 +124,30 @@ class PacMan
   def hash;        uid.hash;         end
   def eql?(other); self == other;    end
 
-  def to_s; "pm[#{@uid}-#{position}%#{ability_cooldown}]"; end
-  # def to_i; 0; end
+  def to_s; "pm[#{@uid}-#{position}%#{ability_cooldown}|#{targetable.visible_enemies.count}|#{!!targetable.targetable_enemy}]"; end
+  def to_i; 0; end
+
+  def update_visible_things
+    # ms = Benchmark.realtime {
+      Position::DIRECTIONS.each do |dir|
+        dir_pos = self.position.move(dir)
+        loop do
+          dir_pos.move!(dir)
+          cell = game.grid_turn[dir_pos]
+          if game.visible_pellets[dir_pos] && !game.turn_visible_pellets[dir_pos]
+            STDERR.puts "Remove bullet at #{dir_pos} for #{self} (#{dir})"
+            game.visible_pellets.delete(dir_pos)
+          end
+          if cell.data.is_a?(PacMan) && !player.include_pm?(cell.data.uid)
+            targetable.set_visible_enemy(cell.data)
+          end
+          break if !cell.accessible_for? || dir_pos == self.position
+        end
+      end
+    # } * 1000
+    # STDERR.puts "update_visible_things DONE in #{ms}ms for #{self}"
+  end
 
   private
   def game; Game.instance; end
-
-  def remove_bullet_positions!
-    visited_pos = [position]
-    if position_changed? && (turn_number - previous_turn_number) <= GUESS_PATH_TURN_DIFF
-      pf = PathFinder.new(game.grid, self.previous_position)
-      if (result = pf.shortest_path(position))
-        visited_pos += result[:path]
-      end
-    end
-    visited_pos.each do |pos|
-      value = game.visible_pellets.delete(pos)
-    end
-  end
 end

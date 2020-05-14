@@ -36,6 +36,30 @@ class Position
     clone.move!(direction, cell)
   end
 
+  def bresenham(other)
+    coords = [self]
+    return coords if self == other
+    dx, dy = (other.x - x).abs, -(other.y - y).abs
+    step_x = x < other.x ? 1 : -1
+    step_y = y < other.y ? 1 : -1
+    err    = dx + dy
+    x_dup, y_dup = x, y
+
+    begin
+      e2 = 2*err;
+      if e2 >= dy
+        err += dy
+        x_dup += step_x
+      end
+      if e2 <= dx
+        err += dx
+        y_dup += step_y
+      end
+      coords << Position.new(x_dup, y_dup)
+    end until (x_dup == other.x && y_dup == other.y)
+    coords.uniq
+  end
+
   def +(other)
     self.x = x + other.x; self.y = y + other.y; self
   end
@@ -103,14 +127,16 @@ class TorPosition < Position
     Math.sqrt(dists_x.min + dists_y.min)
   end
 
+  def to_s; "(#{x}/#{@max_x},#{y}/#{@max_y})";  end
+
   private
   def clamp!(x,y)
     clamp_x!(x); clamp_y!(y)
   end
   def clamp_x!(x)
-    @x = x.between?(0, @max_x) ? x : @max_x - x.abs
+    @x = x.between?(0, @max_x - 1 ) ? x : @max_x - x.abs
   end
   def clamp_y!(y)
-    @y = y.between?(0, @max_y) ? y : @max_y - y.abs
+    @y = y.between?(0, @max_y - 1) ? y : @max_y - y.abs
   end
 end
