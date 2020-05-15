@@ -37,7 +37,7 @@ end
 class GameCell < Cell
   def accessible_for?(unit=nil)
     if unit && data.is_a?(PacMan)
-      if unit.player.include_pm?(data.uid)
+      if unit.player.uid == data.player.uid
         return false
       else
         return unit.type > data.type

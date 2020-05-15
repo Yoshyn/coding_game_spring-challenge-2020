@@ -13,8 +13,6 @@ class Player
 
   def get_pac_man(uid); @pacmans[uid] ||= PacMan.new(self, uid); end
 
-  def include_pm?(pac_id); @pacmans.keys.include?(pac_id); end
-
   def raw_pacmans; @pacmans.values; end
   def pacmans; raw_pacmans.select() { |pc| pc.visible }; end
 

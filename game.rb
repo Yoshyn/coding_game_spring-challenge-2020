@@ -22,7 +22,8 @@ class Game
     @my_player  = Player.new(:ME)
     @opp_player = Player.new(:OPP)
     @visible_pellets, @turn_visible_pellets = {}, {}
-    @grid = @grid_turn = nil
+    @grid = nil
+    @grid_turn = nil
     @turn_number = 0
     @turn_targeted_pos = Set.new
   end
@@ -47,6 +48,9 @@ class Game
       end
     end
     STDERR.puts "Init Grid[#{@grid.width}, #{@grid.height}] Size[#{@grid.size()}] with #{@visible_pellets.length()} Pellets"
+    # STDERR.puts "---------"
+    # STDERR.puts @grid.to_s
+    # STDERR.puts "---------"
     @grid.freeze
   end
 
@@ -92,6 +96,12 @@ class Game
   private
   def turn_update()
     readed_data = nil
+    # RESET Everything before wait for get.
+    @grid_turn = @grid.deep_clone
+    all_pacmans.each { |pc| pc.reset! }
+    @turn_targeted_pos = []
+    @turn_visible_pellets = {}
+
     ms = Benchmark.realtime {
       STDERR.puts "<fetch_data (reading stdin)>"
       readed_data = fetch_data()
@@ -101,10 +111,6 @@ class Game
 
     ms = Benchmark.realtime {
       STDERR.puts "<turn_update_real (after reading stdin)>"
-      @grid_turn = @grid.deep_clone
-      all_pacmans.each { |pc| pc.reset! }
-      @turn_targeted_pos = []
-      @turn_visible_pellets = {}
 
       to_update_pellets.each do |x, y, value|
         p_pos = TorPosition.new(x, y, @grid.width, @grid.height)
@@ -121,6 +127,10 @@ class Game
       my_player.pacmans.each(&:update_visible_things)
       @visible_pellets.each { |pos, pts| @grid_turn[pos].data = pts }
       STDERR.puts "T#{turn_number} Total/visible Pellet => #{visible_pellets.length()}/#{turn_visible_pellets.count}"
+
+      Game.instance.visible_pellets.each do |pos, v|
+        STDERR.puts " * Remain Super Bullet at #{pos}" if v > 1
+      end
 
       my_player.score = my_score
       opp_player.score = opponent_score

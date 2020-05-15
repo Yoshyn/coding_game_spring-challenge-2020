@@ -59,7 +59,7 @@ class PacMan
         res ="SWITCH #{uid} #{type.weakness} B#{blocked?}-S#{targetable.must_switch?}"
       end
     } * 1000
-    STDERR.puts "<action_switch take=#{ms}ms res=#{res}>"
+    STDERR.puts "<action_switch take=#{ms}ms res=#{res} B(#{blocked?}) S(#{targetable.must_switch?})>"
     res
   end
 
@@ -72,10 +72,10 @@ class PacMan
         (
          (
             targetable.target_enemy || # We can kill
-            pacman.player.score <= player(nil).score # Emergency need scoring
-          ) && !must_switch? # Not near to a killer
+            player.score <= game.player(nil).score # Emergency need scoring
+          ) && !targetable.must_switch? # Not near to a killer
          )
-        res = "SPEED #{uid} T#{!!targetable.target_enemy}S#{pacman.player.score <= player(nil).score}"
+        res = "SPEED #{uid} T#{!!targetable.target_enemy}S#{player.score}<=#{game.player(nil).score}}"
       end
     } * 1000
     STDERR.puts "<action_speed take=#{ms}ms res=#{res}>"
@@ -86,18 +86,12 @@ class PacMan
     res = nil
     STDERR.puts "<action_move for=#{self}>"
     ms = Benchmark.realtime {
-      STDERR.puts "HERE1"
-      STDERR.puts "HERE1b #{targetable.next}"
       if to = targetable.next
-        STDERR.puts "HERE 2"
-        STDERR.puts "HERE 2b #{targetable.path}"
         (targetable.path.take(GUESS_PATH_TURN_DIFF) - [to]).each do |pos|
-          STDERR.puts "HERE 3 #{pos}"
           game.turn_targeted_pos << pos
           game.grid_turn[pos].data = '#'
         end
         res = "MOVE #{uid} #{to.x} #{to.y} #{targetable.kind}-#{ability_cooldown}"
-        STDERR.puts "HERE 3 #{res}"
       else
         STDERR.puts "No possible actions for #{self}"
         raise "No possible action for #{self} !"
@@ -130,18 +124,23 @@ class PacMan
   def update_visible_things
     # ms = Benchmark.realtime {
       Position::DIRECTIONS.each do |dir|
-        dir_pos = self.position.move(dir)
+        dir_pos = self.position.clone
         loop do
           dir_pos.move!(dir)
           cell = game.grid_turn[dir_pos]
+          break if !cell.accessible_for? || dir_pos == self.position
           if game.visible_pellets[dir_pos] && !game.turn_visible_pellets[dir_pos]
             STDERR.puts "Remove bullet at #{dir_pos} for #{self} (#{dir})"
             game.visible_pellets.delete(dir_pos)
           end
-          if cell.data.is_a?(PacMan) && !player.include_pm?(cell.data.uid)
-            targetable.set_visible_enemy(cell.data)
+          if cell.data.is_a?(PacMan)
+            if player.uid != cell.data.player.uid
+              STDERR.puts "SetVisibleEnemy at #{cell.uid}(#{cell.data.uid}) for #{self}"
+              targetable.set_visible_enemy(cell.data)
+            else
+              STDERR.puts "FIND COPAIN at #{cell.uid}"
+            end
           end
-          break if !cell.accessible_for? || dir_pos == self.position
         end
       end
     # } * 1000

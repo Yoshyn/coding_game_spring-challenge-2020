@@ -20,25 +20,25 @@ class TargetableCell
   def visible_enemies; @_visible_enemies; end
 
   def set_visible_enemy(pacman);
-    @_visible_enemies << pac_man
+    @_visible_enemies << pacman
   end
 
-  MAX_DISTANCE_TARGET = 4
   def targetable_enemy;
     visible_enemies.select { |enemy|
-      pacman > enemy && pacman.distance(enemy) < MAX_DISTANCE_TARGET
+      pacman > enemy
     }.min { |pac1, pac2|
-      pac1.distance(pac2)
+      pac1.position.distance(pac2.position)
     }
   end
 
+  MAX_DISTANCE_TARGET = 4
   def target_enemy
     @_cached[__method__] ||= begin
       STDERR.puts "<target_enemy for=#{pacman}>"
       result = nil
       enemy = targetable_enemy
       ms = Benchmark.realtime {
-        if enemy
+        if enemy && pacman.position.distance(enemy.position) < MAX_DISTANCE_TARGET
           pf = PathFinder.new(
             game.grid_turn, pacman.position,
             is_visitable: -> (cell) { cell && cell.accessible_for?(pacman) }
@@ -53,8 +53,7 @@ class TargetableCell
 
   def must_switch?
     @_cached[__method__] ||= begin
-      STDERR.puts "#{pacman} -> visible_enemies [#{visible_enemies}]"
-      visible_enemies && targetable_enemy.nil?
+      !visible_enemies.empty? && targetable_enemy.nil?
     end
   end
 
@@ -127,7 +126,7 @@ class TargetableCell
   class ScoringPathFinder < PathFinder
 
     MAX_PROFIT = 10
-    MAX_DEPTH = 20
+    MAX_DEPTH = 12
 
     def initialize(grid, pacman)
       @pacman = pacman
@@ -168,7 +167,7 @@ class TargetableCell
     end
 
     def move_profit(current, neighbor)
-      current.profit + @grid[neighbor.to].data.to_i
+      current.profit + Game.instance.visible_pellets[neighbor.to].to_i
     end
 
     def move_cost(current, neighbor)
