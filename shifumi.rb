@@ -12,6 +12,8 @@ class Shifumi
 
   def initialize(type); @type = type.to_s; end
 
+  def alive?; @type != "DEAD"; end
+
   def weakness; Shifumi.new(Shifumi.can_win(type));   end
   def strength; Shifumi.new(Shifumi.can_loose(type)); end
 
@@ -24,9 +26,9 @@ class Shifumi
   def to_s; type; end
 end
 
-# Shifumi.can_kill("PAPER")
-# Shifumi.can_kill("ROCK")
-# Shifumi.can_kill("SCISSORS")
+# Shifumi.can_win("PAPER")
+# Shifumi.can_win("ROCK")
+# Shifumi.can_win("SCISSORS")
 # paper = Shifumi.new("PAPER")
 # rock = Shifumi.new("ROCK")
 # rock == paper # false

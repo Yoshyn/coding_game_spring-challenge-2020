@@ -14,7 +14,11 @@ class Player
   def get_pac_man(uid); @pacmans[uid] ||= PacMan.new(self, uid); end
 
   def raw_pacmans; @pacmans.values; end
-  def pacmans; raw_pacmans.select() { |pc| pc.visible }; end
+  def pacmans;
+    raw_pacmans.select() { |pc|
+      pc.visible && pc.alive?
+    };
+  end
 
   def to_s; "player[#{@uid} - Score(#{score}) - pacmans(#{@pacmans.map(&:to_s)})]"; end
 end

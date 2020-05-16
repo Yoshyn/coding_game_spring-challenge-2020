@@ -4,7 +4,7 @@ require 'benchmark'
 
 class PathFinder
   class StepList
-    include Comparable
+    # include Comparable
     attr_reader :previous, :uid, :depth, :cost, :profit
 
     def initialize(path_finder, previous, uid, profit, cost, depth);
@@ -14,22 +14,28 @@ class PathFinder
       @heuristic_method = path_finder.heuristic
     end
 
-    def <=>(other); heuristic <=> other.heuristic; end
-
     def heuristic
       @_heuristic ||= @heuristic_method.call(@origin, self)
     end
 
+    def <=>(other); heuristic <=> other.heuristic; end
+
     def to_a; [previous, uid, profit, cost, depth]; end
-    def to_s; "[#{previous.uid}=>#{uid}|#{heuristic}|#{profit}|#{cost}|#{depth}]" end
+    def to_s; "[#{previous&.uid}=>#{uid} [H=#{heuristic}] [P=#{profit}] [C=#{cost}] [D=#{depth}]]" end
   end
 
   module Euristiques
     class ComparableArray < Array; include Comparable; end
 
     def self.return_on_invest(_, step)
-      roi = (step.cost > 0) ? (step.profit-step.cost)/step.cost.to_f : -1
-      ComparableArray.new([roi, step.profit])
+      roi = if (step.cost > 0)
+        [ ((step.profit-step.cost)/step.cost.to_f).ceil(2),
+          (step.profit/step.cost).ceil(2),
+          -step.depth]
+      else
+        [ -1, 0, 0]
+      end
+      ComparableArray.new(roi)
     end
 
     def self.oil_stain(_, step); -step.depth; end
@@ -49,11 +55,11 @@ class PathFinder
   end
 
   # Shortest mean that we go first on low scoring
-  def shortest_path(to)
+  def shortest_path(to, max_depth: Float::INFINITY)
     return self.class.no_result unless @is_visitable.call(@grid[to])
     @heuristic = PathFinder::Euristiques.method(:oil_stain)
     dijkstra(to: to,
-      break_if: @break_if || -> (current,to) { current.uid == to }
+      break_if: @break_if || -> (current,to) { current.uid == to || current.depth >= max_depth }
     )
     generate_result(to)
   end
@@ -62,13 +68,15 @@ class PathFinder
   def longest_path(max_depth: Float::INFINITY)
     @heuristic = PathFinder::Euristiques.method(:return_on_invest)
     dijkstra(
-      break_if:    @break_if    || -> (current, to) { current.depth > max_depth },
+      break_if:    @break_if    || -> (current, to) { current.depth >= max_depth },
       move_profit: @move_profit || -> (current, neighbor) { current.cost + neighbor.cost },
       move_cost:   @move_cost   || -> (current, neighbor) { current.depth + 1 },
     )
-    # Max by [ROI, cost] with spaceship operator
+    # Max by [roi, ratio, depth (positive)]
     to = @visited.max { |(_, v1), (_, v2)|
-      v1 <=> v2
+      roi, ratio, depth = v1.heuristic
+      roi2, ratio2, depth2 = v2.heuristic
+      [roi, ratio, depth.abs] <=> [roi2, ratio2, depth2.abs]
     }.first
 
     generate_result(to)
@@ -119,26 +127,27 @@ class PathFinder
     to_visit = [ StepList.new(self, nil, @origin, 0, 0, 0) ]
     loop do
       current = to_visit.pop;
-      # one_loop = Benchmark.realtime {
-        @visited[current.uid] ||= begin
-          @grid[current.uid].neighbors.each do |neighbor|
-            next if !is_visitable.call(@grid[neighbor.to])
-            next_step = nil
-            next_step = StepList.new(self, current, neighbor.to,
-              move_profit.call(current, neighbor),
-              move_cost.call(current, neighbor),
-              current.depth + 1)
-            insert_at = to_visit.bsearch_index { |step|
-              step.heuristic >= next_step.heuristic
-            } || -1
-            to_visit.insert(insert_at, next_step)
-          end
-          current
-        end
-        # } * 1000
-        # STDERR.puts "one_loop take #{one_loop}ms | #{@visited.size()} | #{to_visit.count}"
-        # binding.pry if one_loop > 10
-      break if to_visit.empty? || break_if.call(current, to)
+      @visited[current.uid] = current
+      break if break_if.call(current, to)
+      @grid[current.uid].neighbors.each do |neighbor|
+        next if !is_visitable.call(@grid[neighbor.to]) || @visited[neighbor.to]
+        next if to_visit.detect { |ostep|
+          ostep.uid == neighbor.to
+        }
+        # In fact if @visited[neighbor.to].heuristique worst than current,
+        #   * remove all visited until I cross my current path
+        # Same on the visited based on heuristique
+
+        next_step = StepList.new(self, current, neighbor.to,
+          move_profit.call(current, neighbor),
+          move_cost.call(current, neighbor),
+          current.depth + 1)
+        insert_at = to_visit.bsearch_index { |step|
+          step.heuristic >= next_step.heuristic
+        } || -1
+        to_visit.insert(insert_at, next_step)
+      end
+      break if to_visit.empty?
     end
   end
 end

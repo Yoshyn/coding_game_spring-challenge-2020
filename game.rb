@@ -35,7 +35,7 @@ class Game
       row = gets.chomp
       row.split('').each_with_index do |value, col_index|
         c_pos = TorPosition.new(col_index, row_index, @grid.width, @grid.height)
-        @grid[c_pos] = GameCell.new(c_pos, value)
+        @grid[c_pos] = GameCell.new(c_pos, value.to_s)
       end
     end
     @grid.each do |cell|
@@ -60,19 +60,13 @@ class Game
       @turn_number += 1
       STDERR.puts "Start TURN ##{@turn_number}"
       turn_update()
-      ms0 = Benchmark.realtime {
-        STDERR.puts "<actions turn_number=##{@turn_number}>"
-        actions = []
-        my_player.pacmans.each do |pacman|
-          STDERR.puts "<action for=#{pacman}>"
-          ms = Benchmark.realtime {
-            actions << pacman.next_action
-          } * 1000
-          STDERR.puts "</action take=#{ms}ms for=#{pacman} result=#{actions.last}>"
-        end
-        puts actions.reject(&:nil?).join(' | ')
-      } * 1000
-      STDERR.puts "</actions take=#{ms0}ms>"
+      actions = []
+      my_player.pacmans.each do |pacman|
+        next_action  = pacman.next_action
+        STDERR.puts "<next_action for=#{pacman} value=#{next_action}/>"
+        actions << next_action
+      end
+      puts actions.reject(&:nil?).join(' | ')
       STDERR.puts "----------------------------"
     end
   end
@@ -91,6 +85,12 @@ class Game
 
   def visible_pellets
     @visible_pellets.except(*turn_targeted_pos)
+  end
+
+  def raw_visible_pellets; @visible_pellets; end
+
+  def remove_pellet!(pos)
+    @visible_pellets.delete(pos)
   end
 
   private
@@ -122,11 +122,12 @@ class Game
         pac_pos = TorPosition.new(x, y, @grid.width, @grid.height)
         pac_man = get_pac_man(player_id, uid)
         pac_man.update(pac_pos, type, speed_turns_left, ability_cooldown)
-        @visible_pellets.delete(pac_pos)
+        remove_pellet!(pac_pos)
       end
       my_player.pacmans.each(&:update_visible_things)
       @visible_pellets.each { |pos, pts| @grid_turn[pos].data = pts }
-      STDERR.puts "T#{turn_number} Total/visible Pellet => #{visible_pellets.length()}/#{turn_visible_pellets.count}"
+      STDERR.puts "##{turn_number} Total/visible Pellet => #{visible_pellets.length()}/#{turn_visible_pellets.count}"
+      STDERR.puts "Alive Pacman : #{my_player.pacmans.count} | visible mechant #{opp_player.pacmans.count}"
 
       Game.instance.visible_pellets.each do |pos, v|
         STDERR.puts " * Remain Super Bullet at #{pos}" if v > 1
@@ -137,7 +138,6 @@ class Game
     } * 1000
     STDERR.puts "</turn_update_real take #{ms}ms>"
   end
-
 
   def fetch_data()
     my_score, opponent_score = gets.split(" ").collect {|x| x.to_i}

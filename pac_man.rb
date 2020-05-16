@@ -12,8 +12,7 @@ class PacMan
   attr_reader :player
   attr_reader :targetable
   attr_accessor :visible
-
-  GUESS_PATH_TURN_DIFF = 3
+  attr_reader :turn_visible_pellets
 
   attr_historized(
     :position,         # position in the grid
@@ -26,11 +25,13 @@ class PacMan
   def initialize(player, uid);
     @player, @uid, @visible = player, uid, false;
     @targetable = TargetableCell.new(self)
+    @turn_visible_pellets = []
   end
 
   def reset!;
     @visible = false
     targetable.reset!
+    @turn_visible_pellets = []
   end
 
   def update(position, type_id, speed_turns_left, ability_cooldown)
@@ -52,53 +53,37 @@ class PacMan
   end
 
   def action_switch
-    res = nil
-    STDERR.puts "<action_switch for=#{self}>"
-    ms = Benchmark.realtime {
-      if ability_cooldown <= 0 && (blocked? || targetable.must_switch?)
-        res ="SWITCH #{uid} #{type.weakness} B#{blocked?}-S#{targetable.must_switch?}"
-      end
-    } * 1000
-    STDERR.puts "<action_switch take=#{ms}ms res=#{res} B(#{blocked?}) S(#{targetable.must_switch?})>"
-    res
+    if ability_cooldown <= 0 && (blocked? || targetable.must_switch?)
+      "SWITCH #{uid} #{type.weakness} B#{blocked?}-S#{!!targetable.must_switch?}"
+    end
   end
 
   # ACTIONS GENERATIONS
   def action_speed
-    res = nil
-    STDERR.puts "<action_speed for=#{self}>"
-    ms = Benchmark.realtime {
-      if ability_cooldown <= 0 && !blocked? &&
-        (
-         (
-            targetable.target_enemy || # We can kill
-            player.score <= game.player(nil).score # Emergency need scoring
-          ) && !targetable.must_switch? # Not near to a killer
-         )
-        res = "SPEED #{uid} T#{!!targetable.target_enemy}S#{player.score}<=#{game.player(nil).score}}"
-      end
-    } * 1000
-    STDERR.puts "<action_speed take=#{ms}ms res=#{res}>"
-    res
+    if ability_cooldown <= 0 && !blocked? &&
+      (
+       (
+          targetable.target_enemy || # We can kill
+          player.score < game.player(nil).score+20 # Emergency need scoring
+        ) && !targetable.must_switch? # Not near to a killer
+       )
+      "SPEED #{uid} T#{!!targetable.target_enemy}S#{player.score<(game.player(nil).score+20)}"
+    end
   end
 
   def action_move
-    res = nil
-    STDERR.puts "<action_move for=#{self}>"
-    ms = Benchmark.realtime {
-      if to = targetable.next
-        (targetable.path.take(GUESS_PATH_TURN_DIFF) - [to]).each do |pos|
-          game.turn_targeted_pos << pos
-          game.grid_turn[pos].data = '#'
-        end
-        res = "MOVE #{uid} #{to.x} #{to.y} #{targetable.kind}-#{ability_cooldown}"
-      else
-        STDERR.puts "No possible actions for #{self}"
-        raise "No possible action for #{self} !"
+    if to = targetable.next
+      targetable.path.take(5).each do |pos|
+        game.turn_targeted_pos << pos
       end
-    } * 1000
-    STDERR.puts "</action_move take #{ms}ms>"
-    res
+      STDERR.puts "PacMan(#{self}) Move(#{targetable.kind}) for(#{targetable.value}) at #{targetable.next}"
+      STDERR.puts "PATH(#{targetable.path.map(&:to_s)})"
+      @previous_order = to
+      "MOVE #{uid} #{to.x} #{to.y} #{targetable.kind}-#{ability_cooldown}"
+    else
+      STDERR.puts "No possible actions for #{self}"
+      raise "No possible action for #{self} !"
+    end
   end
 
   def next_action
@@ -107,6 +92,7 @@ class PacMan
 
   # DELEGATOR
   def ==(other); type == other.type; end
+  def alive?;    type.alive?         end
   def <(other);  type < other.type;  end
   def <=(other); type <= other.type; end
   def >(other);  type > other.type;  end
@@ -122,29 +108,32 @@ class PacMan
   def to_i; 0; end
 
   def update_visible_things
-    # ms = Benchmark.realtime {
-      Position::DIRECTIONS.each do |dir|
-        dir_pos = self.position.clone
-        loop do
-          dir_pos.move!(dir)
-          cell = game.grid_turn[dir_pos]
-          break if !cell.accessible_for? || dir_pos == self.position
-          if game.visible_pellets[dir_pos] && !game.turn_visible_pellets[dir_pos]
-            STDERR.puts "Remove bullet at #{dir_pos} for #{self} (#{dir})"
-            game.visible_pellets.delete(dir_pos)
+    if blocked? && ability_cooldown >= 1 && @previous_order
+      STDERR.puts "BLOCKED DETECTED for #{self} go to #{@previous_order}"
+      game.grid_turn[@previous_order].data = '#'
+      STDERR.puts "#{game.grid_turn}"
+    end
+    @previous_order = nil
+    Position::DIRECTIONS.each do |dir|
+      dir_pos = self.position.clone
+      loop do
+        dir_pos.move!(dir)
+        cell = game.grid_turn[dir_pos]
+        break if !cell.accessible_for? || dir_pos == self.position
+        if game.visible_pellets[dir_pos]
+          if !game.turn_visible_pellets[dir_pos]
+            game.remove_pellet!(dir_pos)
+          else
+            @turn_visible_pellets << dir_pos.clone
           end
-          if cell.data.is_a?(PacMan)
-            if player.uid != cell.data.player.uid
-              STDERR.puts "SetVisibleEnemy at #{cell.uid}(#{cell.data.uid}) for #{self}"
-              targetable.set_visible_enemy(cell.data)
-            else
-              STDERR.puts "FIND COPAIN at #{cell.uid}"
-            end
-          end
+        elsif cell.data.is_a?(PacMan) &&
+          player.uid != cell.data.player.uid
+          targetable.set_visible_enemy(cell.data)
         end
       end
-    # } * 1000
-    # STDERR.puts "update_visible_things DONE in #{ms}ms for #{self}"
+    end
+    STDERR.puts "Pacman #{self} see bullets at #{@turn_visible_pellets.map(&:to_s)}"
+    STDERR.puts "Pacman #{self} see enemies at #{@targetable.visible_enemies.map(&:position)}"
   end
 
   private

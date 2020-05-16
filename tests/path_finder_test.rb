@@ -3,12 +3,18 @@ require "pry-byebug"
 require_relative "../core_ext/hash"
 require_relative "./helper"
 require_relative "../path_finder"
-require_relative "../targetable"
+require_relative "../scoring_path_finder"
 require_relative "../cell"
 require 'benchmark'
 
 class TestCell < Cell
   def accessible_for?(_ = nil ); data != '#'; end
+end
+
+class ScoringPathFinder
+  def move_profit(current, neighbor)
+    current.profit + @grid[neighbor.to].data.to_i
+  end
 end
 
 class PathFinderTest < Minitest::Test
@@ -217,33 +223,32 @@ class PathFinderTest < Minitest::Test
 
   # TODO : solve this two horrible problem
   # One solution can be to make a crow fly
-  def test_longest_path_finder_loop
-    skip("This is an horrible probleme !")
-    data ||= [
-      ['.', '.', '.', '#' ],
-      ['.', '#', '.', '#' ],
-      ['#', '.', '.', '#' ],
-      ['#', '.', '.', '#' ],
-      ['#', '#', '.', '#' ]
-    ]
-    grid = init_grid(data, TestCell);
-    assert_hash_includes(
-      PathFinder.new(grid, Position.new(0,0), is_visitable: IS_VISITABLE).longest_path,
-      { next: Position.new(1,0), depth: 8, cost: 8 }
-    )
-    data ||= [
-      ['#', '.', '.', '.',],
-      ['#', '.', '#', '.',],
-      ['#', '.', '.', '#',],
-      ['#', '.', '.', '#',],
-      ['#', '.', '#', '#',]
-    ]
-    grid = init_grid(data, TestCell);
-    assert_hash_includes(
-      PathFinder.new(grid, Position.new(3,0), is_visitable: IS_VISITABLE).longest_path,
-      { next: Position.new(1,0), depth: 8, cost: 8 }
-    )
-  end
+  # def test_longest_path_finder_loop
+  #   data ||= [
+  #     ['.', '.', '.', '#' ],
+  #     ['.', '#', '.', '#' ],
+  #     ['#', '.', '.', '#' ],
+  #     ['#', '.', '.', '#' ],
+  #     ['#', '#', '.', '#' ]
+  #   ]
+  #   grid = init_grid(data, TestCell);
+  #   assert_hash_includes(
+  #     PathFinder.new(grid, Position.new(0,0), is_visitable: IS_VISITABLE).longest_path,
+  #     { next: Position.new(1,0), depth: 8, cost: 8 }
+  #   )
+  #   data ||= [
+  #     ['#', '.', '.', '.',],
+  #     ['#', '.', '#', '.',],
+  #     ['#', '.', '.', '#',],
+  #     ['#', '.', '.', '#',],
+  #     ['#', '.', '#', '#',]
+  #   ]
+  #   grid = init_grid(data, TestCell);
+  #   assert_hash_includes(
+  #     PathFinder.new(grid, Position.new(3,0), is_visitable: IS_VISITABLE).longest_path,
+  #     { next: Position.new(1,0), depth: 8, cost: 8 }
+  #   )
+  # end
 
   def test_longest_path_finder_max_depth
     data ||= [
@@ -277,7 +282,7 @@ class PathFinderTest < Minitest::Test
     max_depth: Float::INFINITY)
 
     break_if = -> (current, to) {
-      current && (current.cost > max_cost || current.depth >= max_depth)
+      (current.cost > max_cost || current.depth >= max_depth)
     }
     is_visitable = -> (cell) { cell.accessible_for? }
     move_profit  = -> (current, neighbor) {
@@ -340,7 +345,7 @@ class PathFinderTest < Minitest::Test
     grid = init_grid(data, GameCell)
     pacman = OpenStruct.new(position: Position.new(1,1), current_speed: 1)
 
-    pf = TargetableCell::ScoringPathFinder.new(grid, pacman)
+    pf = ScoringPathFinder.new(grid, pacman)
     assert_equal({
       next: Position.new(0,1),
       profit: 5, depth: 1, cost: 1,
@@ -367,9 +372,9 @@ class PathFinderTest < Minitest::Test
     max_value = 3 #ms
     running_time = Benchmark.realtime {
       pf = PathFinder.new(grid, Position.new(0,0), is_visitable: is_visitable)
-      res = pf.shortest_path(Position.new(14,14))
+      res = pf.shortest_path(Position.new(20,20))
     } * 1000
-    assert_equal(28, res[:path].count)
+    assert_equal(42, res[:path].count)
     refute_operator running_time, :>, max_value
   end
 
@@ -378,7 +383,7 @@ class PathFinderTest < Minitest::Test
       ['.', '#', '.', '1', '5', '1', '#', '1' ]*4,
       ['.', '.', '.', '#', '#', '1', '#', '1' ]*4,
       ['.', '#', '.', '#', '1', '1', '5', '1' ]*4,
-      ['.', '#', '.', '1', '5', '1', '#', '#' ]*4,
+      ['.', '#', '.', '1', '0', '1', '#', '#' ]*4,
       ['.', '.', '.', '#', '#', '1', '1', '#' ]*4,
       ['1', '5', '1', '1', '1', '1', '#', '1' ]*4,
     ]*5
@@ -388,13 +393,15 @@ class PathFinderTest < Minitest::Test
     pacman = player.get_pac_man(1)
     pacman.update(Position.new(0,0), "ROCK", 0, 8)
 
+    puts "Max coord : (#{grid.width}, #{grid.height})"
     res = nil
     max_value = 3 #ms
     running_time = Benchmark.realtime {
-      pf = TargetableCell::ScoringPathFinder.new(grid, pacman)
+      pf = ScoringPathFinder.new(grid, pacman) #, max_depth: 20)
       res = pf.path_finder
     } * 1000
-    assert_equal(7, res[:path].count)
+    assert_equal(195, res[:path].count) #Infinity
+    # assert_equal(20, res[:path].count)
 
     refute_operator running_time, :>, max_value
   end
