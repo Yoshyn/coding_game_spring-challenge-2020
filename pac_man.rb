@@ -64,7 +64,7 @@ class PacMan
       (
        (
           targetable.target_enemy || # We can kill
-          player.score < game.player(nil).score+20 # Emergency need scoring
+          player.score < game.player(nil).score+30 # Emergency need scoring
         ) && !targetable.must_switch? # Not near to a killer
        )
       "SPEED #{uid} T#{!!targetable.target_enemy}S#{player.score<(game.player(nil).score+20)}"
@@ -75,9 +75,11 @@ class PacMan
     if to = targetable.next
       targetable.path.take(5).each do |pos|
         game.turn_targeted_pos << pos
+        game.grid_turn[pos].data = '#'
       end
-      STDERR.puts "PacMan(#{self}) Move(#{targetable.kind}) for(#{targetable.value}) at #{targetable.next}"
-      STDERR.puts "PATH(#{targetable.path.map(&:to_s)})"
+      game.turn_targeted_pos << to
+      game.grid_turn[to].data = '#'
+      STDERR.puts "<action_move to=#{targetable.next} pacman=#{self}-#{targetable.kind} profit=#{targetable.value} path_finder=#{targetable.path.map(&:to_s)}/>"
       @previous_order = to
       "MOVE #{uid} #{to.x} #{to.y} #{targetable.kind}-#{ability_cooldown}"
     else

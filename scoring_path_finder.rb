@@ -25,12 +25,11 @@ class ScoringPathFinder < PathFinder
       move_profit: @move_profit, move_cost: @move_cost
     )
 
-    # Max by [roi, ratio, depth (positive)]
+    # Max by [roi, ratio, profit]
     to = @visited.max { |(_, v1), (_, v2)|
       roi, ratio, depth = v1.heuristic
       roi2, ratio2, depth2 = v2.heuristic
-      [roi, ratio, depth.abs] <=> [roi2, ratio2, depth2.abs]
-      # v1.heuristic <=> v2.heuristic
+      [roi, ratio, v1.profit] <=> [roi2, ratio2, v2.profit]
     }.first
 
     generate_result(to)

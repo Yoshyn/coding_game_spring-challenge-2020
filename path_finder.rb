@@ -30,7 +30,7 @@ class PathFinder
     def self.return_on_invest(_, step)
       roi = if (step.cost > 0)
         [ ((step.profit-step.cost)/step.cost.to_f).ceil(2),
-          (step.profit/step.cost).ceil(2),
+          (step.profit/step.cost).to_i,
           -step.depth]
       else
         [ -1, 0, 0]

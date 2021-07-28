@@ -16,7 +16,7 @@ class Game
   attr_reader :turn_targeted_pos
   attr_reader :turn_visible_pellets
   attr_reader :my_player, :opp_player
-
+  attr_reader :total_initial_bullets_count
 
   def initialize()
     @my_player  = Player.new(:ME)
@@ -47,6 +47,7 @@ class Game
         end
       end
     end
+    @total_initial_bullets_count = @visible_pellets.count
     STDERR.puts "Init Grid[#{@grid.width}, #{@grid.height}] Size[#{@grid.size()}] with #{@visible_pellets.length()} Pellets"
     # STDERR.puts "---------"
     # STDERR.puts @grid.to_s
@@ -126,7 +127,7 @@ class Game
       end
       my_player.pacmans.each(&:update_visible_things)
       @visible_pellets.each { |pos, pts| @grid_turn[pos].data = pts }
-      STDERR.puts "##{turn_number} Total/visible Pellet => #{visible_pellets.length()}/#{turn_visible_pellets.count}"
+      STDERR.puts "##{turn_number} Total/visible Pellet => #{visible_pellets.length()}/#{total_initial_bullets_count} current(#{turn_visible_pellets.count})"
       STDERR.puts "Alive Pacman : #{my_player.pacmans.count} | visible mechant #{opp_player.pacmans.count}"
 
       Game.instance.visible_pellets.each do |pos, v|

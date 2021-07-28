@@ -10,6 +10,7 @@ class TargetableCell
     @pacman = pacman
     @_cached = {}
     @_visible_enemies = []
+    # TODO : PREVIOUS HERE
   end
 
   def game; Game.instance; end
@@ -58,15 +59,15 @@ class TargetableCell
 
   def target_scoring
     @_cached[__method__] ||= begin
-      big_next, pts = game.visible_pellets.select { |_,v| v > 1}.sort_by { |pos, _|
-        pos.distance(pacman.position)
+      next_bullet, next_pts = game.visible_pellets.sort_by { |pos, pts|
+        [-pts, pos.distance(pacman.position)]
       }.shift
-      if big_next
+      if next_pts > 1 || game.visible_pellets.count < (game.total_initial_bullets_count / 3)
         pf = PathFinder.new(game.grid_turn, pacman.position,
           is_visitable: -> (cell) { cell && cell.accessible_for?(pacman) },
           move_size: pacman.current_speed
         )
-        spf = pf.shortest_path(big_next, max_depth: 15).merge(kind: :big)
+        spf = pf.shortest_path(next_bullet, max_depth: 15).merge(kind: :sho, profit: next_pts)
         return spf if spf[:next]
       end
       spf = ScoringPathFinder.new(game.grid_turn, pacman,
